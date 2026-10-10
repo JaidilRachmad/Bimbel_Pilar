@@ -8,12 +8,12 @@ const AppError = require("../utils/AppError");
 
 const TABLE = "sesi_pembelajaran";
 const TABLE_KELAS_SISWA = "kelas_siswa";
-const COLUMNS = "id, kelas_id, guru_id, mata_pelajaran, materi, tanggal, jam_mulai, jam_selesai, link_materi, created_at";
+const COLUMNS = "id, kelas_id, tentor_id, mata_pelajaran, materi, tanggal, jam_mulai, jam_selesai, link_materi, created_at";
 const NOT_FOUND = "Jadwal dan materi belajar tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
     "kelas_id",
-    "guru_id",
+    "tentor_id",
     "mata_pelajaran",
     "materi",
     "tanggal",
@@ -34,9 +34,9 @@ function pickWritable(input = {}) {
 class JadwalMateriModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
 
-    static async getPaginated({ page, limit, kelas_id, guru_id }) {
+    static async getPaginated({ page, limit, kelas_id, tentor_id }) {
         const offset = (page - 1) * limit;
-        const { rows, total } = await JadwalMateriModel.#selectPage({ offset, limit, kelas_id, guru_id });
+        const { rows, total } = await JadwalMateriModel.#selectPage({ offset, limit, kelas_id, tentor_id });
         return {
             items: rows,
             meta: { page, limit, total, total_pages: Math.ceil(total / limit) },
@@ -95,10 +95,10 @@ class JadwalMateriModel {
         if (!deleted) throw AppError.notFound(NOT_FOUND);
     }
 
-    static async #selectPage({ offset, limit, kelas_id, guru_id }) {
+    static async #selectPage({ offset, limit, kelas_id, tentor_id }) {
         let query = supabase.from(TABLE).select(COLUMNS, { count: "exact" });
         if (kelas_id) query = query.eq("kelas_id", kelas_id);
-        if (guru_id) query = query.eq("guru_id", guru_id);
+        if (tentor_id) query = query.eq("tentor_id", tentor_id);
 
         const { data, error, count } = await query
             .order("tanggal", { ascending: false })
