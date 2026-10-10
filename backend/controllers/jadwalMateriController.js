@@ -10,7 +10,7 @@ const { asyncHandler, sendSuccess } = require("../utils/http");
 const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "kelas_id", "guru_id"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "kelas_id", "tentor_id"]);
 
 function assertValid(errors) {
     if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
@@ -41,8 +41,8 @@ function validateBody(body) {
         errors.push("kelas_id wajib diisi dan harus berformat UUID yang valid");
     }
 
-    if (!UUID_PATTERN.test(body.guru_id || "")) {
-        errors.push("guru_id wajib diisi dan harus berformat UUID yang valid");
+    if (!UUID_PATTERN.test(body.tentor_id || "")) {
+        errors.push("tentor_id wajib diisi dan harus berformat UUID yang valid");
     }
 
     if (typeof body.mata_pelajaran !== "string" || body.mata_pelajaran.trim() === "") {
@@ -56,7 +56,7 @@ function validateBody(body) {
     assertValid(errors);
     return {
         kelas_id: body.kelas_id,
-        guru_id: body.guru_id,
+        tentor_id: body.tentor_id,
         mata_pelajaran: body.mata_pelajaran.trim(),
         materi: body.materi ? body.materi.trim() : null,
         tanggal: body.tanggal || null,
@@ -85,14 +85,14 @@ function validateListQuery(query) {
         kelas_id = query.kelas_id;
     }
 
-    let guru_id;
-    if (query.guru_id !== undefined) {
-        if (!UUID_PATTERN.test(query.guru_id)) errors.push("Filter guru_id tidak valid");
-        guru_id = query.guru_id;
+    let tentor_id;
+    if (query.tentor_id !== undefined) {
+        if (!UUID_PATTERN.test(query.tentor_id)) errors.push("Filter tentor_id tidak valid");
+        tentor_id = query.tentor_id;
     }
 
     assertValid(errors);
-    return { page, limit, kelas_id, guru_id };
+    return { page, limit, kelas_id, tentor_id };
 }
 
 const JadwalMateriController = {
