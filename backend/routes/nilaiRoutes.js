@@ -1,7 +1,7 @@
 "use strict";
 /**
  * ROUTES — Penilaian Siswa
- * Mengatur hak akses endpoint: Siswa (milik sendiri), Guru & Admin (CRUD dan Analisis Laporan).
+ * Mengatur hak akses endpoint: Siswa (milik sendiri), tentor & Admin (CRUD dan Analisis Laporan).
  */
 const express = require("express");
 const config = require("../config/env");
@@ -32,20 +32,20 @@ router.get("/me", authorize(config.roles.siswa), PenilaianSiswaController.getMyN
  * @swagger
  * /penilaian-siswa:
  *   get:
- *     summary: Daftar penilaian siswa (Akses Guru & Admin)
+ *     summary: Daftar penilaian siswa (Akses tentor & Admin)
  *     tags: [Penilaian Siswa]
  *     security: [{ bearerAuth: [] }]
  *   post:
- *     summary: Input nilai siswa baru (Akses Guru)
+ *     summary: Input nilai siswa baru (Akses tentor)
  *     tags: [Penilaian Siswa]
  *     security: [{ bearerAuth: [] }]
  */
-// Guru dan Admin dapat membaca data nilai (Admin untuk generate laporan, Guru untuk input)[cite: 48]
-router.get("/", authorize(config.roles.guru, config.roles.admin), PenilaianSiswaController.getAll);
-router.post("/", authorize(config.roles.guru), PenilaianSiswaController.create);
+// tentor dan Admin dapat membaca data nilai (Admin untuk generate laporan, tentor untuk input)[cite: 48]
+router.get("/", authorize(config.roles.tentor, config.roles.admin), PenilaianSiswaController.getAll);
+router.post("/", authorize(config.roles.tentor), PenilaianSiswaController.create);
 
-router.get("/:id", authorize(config.roles.guru, config.roles.admin), PenilaianSiswaController.getById);
-router.put("/:id", authorize(config.roles.guru), PenilaianSiswaController.update);
-router.delete("/:id", authorize(config.roles.guru), PenilaianSiswaController.remove);
+router.get("/:id", authorize(config.roles.tentor, config.roles.admin), PenilaianSiswaController.getById);
+router.put("/:id", authorize(config.roles.tentor), PenilaianSiswaController.update);
+router.delete("/:id", authorize(config.roles.tentor), PenilaianSiswaController.remove);
 
 module.exports = router;
