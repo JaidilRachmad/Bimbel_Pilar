@@ -1,3 +1,5 @@
+"use strict";
+
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
