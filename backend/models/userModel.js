@@ -37,7 +37,7 @@ class UserModel {
     return { id: userId };
   }
   async updateProfileToken(userId, hashedToken) {
-    const { error } = await dbClient
+    const { error } = await supabase
       .from("profiles")
       .update({ token_akses: hashedToken, updated_at: new Date() })
       .eq("id", userId);
@@ -50,10 +50,10 @@ class UserModel {
 
   async updateUserProfile(userId, { role, nama, noTelp, extraField }) {
     if (role) {
-      await dbClient.from("profiles").update({ role }).eq("id", userId);
+      await supabase.from("profiles").update({ role }).eq("id", userId);
     }
 
-    const { data: profileData } = await dbClient
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
@@ -67,7 +67,7 @@ class UserModel {
       if (noTelp) updateData.no_telp = noTelp;
       if (extraField) updateData.nama_wali = extraField;
 
-      const { error } = await dbClient
+      const { error } = await supabase
         .from("siswa_profile")
         .update(updateData)
         .eq("id", userId);
@@ -79,7 +79,7 @@ class UserModel {
       if (noTelp) updateData.no_telp = noTelp;
       if (extraField) updateData.alamat = extraField;
 
-      const { error } = await dbClient
+      const { error } = await supabase
         .from("tentor_profile")
         .update(updateData)
         .eq("id", userId);
@@ -91,7 +91,7 @@ class UserModel {
   }
 
   async findAllUsers(roleFilter) {
-    let query = dbClient.from("profiles").select("id, role, token_akses, created_at");
+    let query = supabase.from("profiles").select("id, role, token_akses, created_at");
 
     if (roleFilter) {
       query = query.eq("role", roleFilter);
@@ -107,18 +107,26 @@ class UserModel {
   }
 
   async deleteUserProfile(userId) {
-    const { data: profile, error: fetchError } = await dbClient
+    if (!userId || typeof userId !== "string") {
+      throw AppError.badRequest("Format ID pengguna tidak valid.");
+    }
+
+    const { data: profile, error: fetchError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !profile) {
+    if (fetchError) {
+      throw AppError.internal(`Gagal mencari pengguna: ${fetchError.message}`);
+    }
+
+    if (!profile) {
       throw AppError.notFound("Pengguna tidak ditemukan.");
     }
 
     if (profile.role === "siswa") {
-      const { error: siswaError } = await dbClient
+      const { error: siswaError } = await supabase
         .from("siswa_profile")
         .delete()
         .eq("id", userId);
@@ -127,7 +135,7 @@ class UserModel {
         throw AppError.internal(`Gagal menghapus siswa_profile: ${siswaError.message}`);
       }
     } else if (profile.role === "tentor") {
-      const { error: tentorError } = await dbClient
+      const { error: tentorError } = await supabase
         .from("tentor_profile")
         .delete()
         .eq("id", userId);
@@ -136,13 +144,20 @@ class UserModel {
         throw AppError.internal(`Gagal menghapus tentor_profile: ${tentorError.message}`);
       }
     }
-    const { error: profileError } = await dbClient
+    const { error: deletedData, error: profileError } = await supabase
       .from("profiles")
       .delete()
-      .eq("id", userId);
+      .eq("id", userId)
+      .select();
 
     if (profileError) {
       throw AppError.internal(`Gagal menghapus profile utama: ${profileError.message}`);
+    }
+    if (!deletedData) {
+      throw AppError.internal("diblokir oleh policy RLS database.");
+    }
+    if (deletedData.length === 0) {
+      throw AppError.internal("Penghapusan gagal: Baris data tidak ditemukan");
     }
 
     return true;
