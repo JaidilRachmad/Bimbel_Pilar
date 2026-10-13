@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes Prefix
-app.use("/api/v1", userRoutes);
+app.use("/api/user", userRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
