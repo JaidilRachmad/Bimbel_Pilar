@@ -1,6 +1,6 @@
 
 const jwt = require("jsonwebtoken");
-const { authClient } = require("../../config/supabase");
+const supabase = require("../config/supabaseClient");
 const authModel = require("../models/authModel");
 
 const MAX_FAILED_ATTEMPTS = 3;
@@ -87,7 +87,7 @@ async function adminLogin(req, res) {
     }
 
     const { data, error } =
-      await authClient.auth.signInWithPassword({
+      await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -128,7 +128,7 @@ async function adminLogin(req, res) {
 
     // Hanya pengguna dengan role admin yang boleh masuk.
     if (!profile || profile.role !== "admin") {
-      await authClient.auth.signOut();
+      await supabase.auth.signOut();
 
       return res.status(403).json({
         success: false,
