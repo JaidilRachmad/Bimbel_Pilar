@@ -2,7 +2,7 @@
 const express = require("express");
 const config = require("../config/env");
 const KelasController = require("../controllers/kelasController");
-const { authenticateToken } = require("../middlewares/auth");
+const { authenticateToken } = require("../middlewares/authMiddleware");
 const { authorize } = require("../middlewares/permissionMiddlewares");
 
 const router = express.Router();
