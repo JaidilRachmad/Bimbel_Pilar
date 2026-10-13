@@ -33,6 +33,73 @@ const createAccount = asyncHandler(async (req, res) => {
   }, 201);
 });
 
+const updateAccessToken = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw AppError.badRequest("ID pengguna wajib disertakan!");
+  }
+
+  const rawToken = tokenService.generateRandomToken();
+  const hashedToken = tokenService.encrypt(rawToken);
+
+  await userModel.updateProfileToken(id, hashedToken);
+
+  return sendSuccess(res, "Token akses berhasil diperbarui!", {
+    id,
+    token_akses_baru_asli: rawToken
+  }, 200);
+});
+
+const updateUserData = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { nama, noTelp, extraField, role } = req.body;
+
+  if (!id) {
+    throw AppError.badRequest("ID pengguna wajib disertakan!");
+  }
+
+  if (role && !["siswa", "tentor", "admin"].includes(role)) {
+    throw AppError.badRequest("Role tidak valid!");
+  }
+
+  const updatedProfile = await userModel.updateUserProfile(id, {
+    role,
+    nama,
+    noTelp,
+    extraField
+  });
+
+  return sendSuccess(res, "Data profil pengguna berhasil diperbarui!", updatedProfile, 200);
+});
+
+const getAllUsers = asyncHandler(async (req, res) => {
+  const { role } = req.query; 
+
+  const users = await userModel.findAllUsers(role);
+
+  return sendSuccess(res, "Berhasil mengambil data seluruh pengguna.", {
+    total: users.length,
+    users
+  }, 200);
+});
+
+const deleteUserAccount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw AppError.badRequest("ID pengguna wajib disertakan!");
+  }
+
+  await userModel.deleteUserProfile(id);
+
+  return sendSuccess(res, "Akun pengguna berhasil dihapus.", { id }, 200);
+});
+
 module.exports = {
-  createAccount
+  updateAccessToken,
+  updateUserData,
+  getAllUsers,
+  createAccount,
+  deleteUserAccount
 };
