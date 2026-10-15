@@ -158,22 +158,15 @@ class UserModel {
         throw AppError.internal(`Gagal menghapus tentor_profile: ${tentorError.message}`);
       }
     }
-    const { error: deletedData, error: profileError } = await supabase
+    const { error: profileError } = await supabase
       .from("profiles")
       .delete()
       .eq("id", userId)
-      .select();
 
     if (profileError) {
       throw AppError.internal(`Gagal menghapus profile utama: ${profileError.message}`);
     }
-    if (!deletedData) {
-      throw AppError.internal("berhasil kok aslinya");
-    }
-    if (deletedData.length === 0) {
-      throw AppError.internal("Penghapusan gagal: Baris data tidak ditemukan");
-    }
-
+    
     return true;
   }
 }
