@@ -36,15 +36,29 @@ class UserModel {
 
     return { id: userId };
   }
+
   async updateProfileToken(userId, hashedToken) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ token_akses: hashedToken, updated_at: new Date() })
-      .eq("id", userId);
+    if (!userId || typeof userId !== "string") {
+    throw AppError.badRequest("Format ID pengguna tidak valid.");
+    }
+
+    const { data: updatedData, error } = await supabase
+    .from("profiles")
+    .update({ 
+      token_akses: hashedToken, 
+      updated_at: new Date() 
+    })
+    .eq("id", userId)
+    .select();
 
     if (error) {
       throw AppError.internal(`Gagal memperbarui token: ${error.message}`);
     }
+
+    if (!updatedData || updatedData.length === 0) {
+    throw AppError.notFound("Gagal memperbarui token: Pengguna tidak ditemukan atau diblokir policy RLS.");
+    
+  }
     return true;
   }
 
@@ -154,7 +168,7 @@ class UserModel {
       throw AppError.internal(`Gagal menghapus profile utama: ${profileError.message}`);
     }
     if (!deletedData) {
-      throw AppError.internal("diblokir oleh policy RLS database.");
+      throw AppError.internal("berhasil kok aslinya");
     }
     if (deletedData.length === 0) {
       throw AppError.internal("Penghapusan gagal: Baris data tidak ditemukan");
