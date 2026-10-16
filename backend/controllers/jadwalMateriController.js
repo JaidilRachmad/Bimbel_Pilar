@@ -3,11 +3,13 @@
  * CONTROLLER (MVC) — Jadwal & Materi Belajar
  * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
  */
-const config = require("../config/env");
 const JadwalMateriModel = require("../models/jadwalMateriModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 const supabase = require("../config/supabaseClient");
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "kelas_id", "tentor_id"]);
@@ -45,8 +47,8 @@ function validateBody(body) {
         errors.push("tentor_id wajib diisi dan harus berformat UUID yang valid");
     }
 
-    if (typeof body.mata_pelajaran !== "string" || body.mata_pelajaran.trim() === "") {
-        errors.push("mata_pelajaran wajib diisi");
+    if (!body.mata_pelajaran || typeof body.mata_pelajaran !== "string" || body.mata_pelajaran.trim() === "") {
+        errors.push("mata_pelajaran wajib diisi dan harus berupa teks");
     }
 
     if (body.tanggal && !/^\d{4}-\d{2}-\d{2}$/.test(body.tanggal)) {
@@ -68,16 +70,16 @@ function validateBody(body) {
 
 function validateListQuery(query) {
     const errors = [];
-    const { defaultLimit, maxLimit } = config.pagination;
-
+    
     if (Object.keys(query).some((key) => !ALLOWED_QUERY_KEYS.includes(key))) {
         errors.push("Terdapat parameter query yang tidak diizinkan");
     }
 
-    const page = parsePositiveInt(query.page, 1);
-    const limit = parsePositiveInt(query.limit, defaultLimit);
+    const page = parsePositiveInt(query.page, DEFAULT_PAGE);
+    const limit = parsePositiveInt(query.limit, DEFAULT_LIMIT);
+
     if (!Number.isInteger(page) || page < 1) errors.push("page harus bilangan bulat >= 1");
-    if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) errors.push(`limit harus 1 sampai ${maxLimit}`);
+    if (!Number.isInteger(limit) || limit < 1 || limit > DEFAULT_LIMIT) errors.push(`limit harus 1 sampai ${DEFAULT_LIMIT}`);
 
     let kelas_id;
     if (query.kelas_id !== undefined) {
@@ -103,9 +105,9 @@ const JadwalMateriController = {
 
     getMyJadwalSiswa: asyncHandler(async (req, res) => {
         const siswaId = req.user.siswa_id || req.user.id;
-        const page = parsePositiveInt(req.query.page, 1);
-        const limit = parsePositiveInt(req.query.limit, config.pagination.defaultLimit);
-        
+        const page = parsePositiveInt(req.query.page, DEFAULT_PAGE);
+        const limit = parsePositiveInt(req.query.limit, DEFAULT_LIMIT);
+
         const { items, meta } = await JadwalMateriModel.getPaginatedForSiswa(siswaId, { page, limit });
         return sendSuccess(res, 200, { data: items, meta });
     }),
