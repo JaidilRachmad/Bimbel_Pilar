@@ -6,9 +6,8 @@
  * - Siswa: Melihat daftar sesi/materi miliknya dan mengunduh materi[cite: 48]
  */
 const express = require("express");
-const config = require("../config/env");
 const JadwalMateriController = require("../controllers/jadwalMateriController");
-const { authenticateToken, authorizeRole} = require("../middlewares/auth");
+const { authenticateToken, authorizeRole} = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
@@ -22,7 +21,7 @@ router.use(authenticateToken);
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/me", authorizeRole(config.roles.siswa), JadwalMateriController.getMyJadwalSiswa);
+router.get("/me", authorizeRole("siswa"), JadwalMateriController.getMyJadwalSiswa);
 
 /**
  * @swagger
@@ -32,7 +31,7 @@ router.get("/me", authorizeRole(config.roles.siswa), JadwalMateriController.getM
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/download", authorizeRole(config.roles.tentor, config.roles.siswa), JadwalMateriController.downloadMateri);
+router.get("/:id/download", authorizeRole("tentor", "siswa"), JadwalMateriController.downloadMateri);
 
 /**
  * @swagger
@@ -46,11 +45,11 @@ router.get("/:id/download", authorizeRole(config.roles.tentor, config.roles.sisw
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/", authorizeRole(config.roles.tentor), JadwalMateriController.getAll);
-router.post("/", authorizeRole(config.roles.tentor), JadwalMateriController.create);
+router.get("/", authorizeRole("tentor"), JadwalMateriController.getAll);
+router.post("/", authorizeRole("tentor"), JadwalMateriController.create);
 
-router.get("/:id", authorizeRole(config.roles.tentor), JadwalMateriController.getById);
-router.put("/:id", authorizeRole(config.roles.tentor), JadwalMateriController.update);
-router.delete("/:id", authorizeRole(config.roles.tentor), JadwalMateriController.remove);
+router.get("/:id", authorizeRole("tentor"), JadwalMateriController.getById);
+router.put("/:id", authorizeRole("tentor"), JadwalMateriController.update);
+router.delete("/:id", authorizeRole("tentor"), JadwalMateriController.remove);
 
 module.exports = router;
