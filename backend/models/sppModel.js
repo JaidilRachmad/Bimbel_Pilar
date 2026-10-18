@@ -1,8 +1,5 @@
 "use strict";
-/**
- * MODEL (MVC) — Tagihan SPP
- * Tugas: Berinteraksi dengan database Supabase, aturan bisnis, dan query data.
- */
+
 const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
