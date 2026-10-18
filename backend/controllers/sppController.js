@@ -1,9 +1,6 @@
 "use strict";
-/**
- * CONTROLLER (MVC) — Tagihan SPP (Admin)
- * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
- */
-const TagihanSppModel = require("../models/tagihanSppModel");
+
+const TagihanSppModel = require("../models/sppModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
@@ -47,7 +44,7 @@ function validateBody(body) {
         errors.push("nominal wajib diisi dan harus berupa angka positif");
     }
 
-    const statusList = ["BELUM_BAYAR", "LUNAS"];
+    const statusList = ["Belum Bayar", "Lunas"];
     if (!statusList.includes(body.status)) {
         errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
     }
@@ -92,7 +89,7 @@ function validateListQuery(query) {
     let status;
     if (query.status !== undefined) {
         status = query.status.trim().toUpperCase();
-        if (!["BELUM_BAYAR", "LUNAS"].includes(status)) errors.push("Filter status tidak valid");
+        if (!["Belum Bayar", "Lunas"].includes(status)) errors.push("Filter status tidak valid");
     }
 
     assertValid(errors);
