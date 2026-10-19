@@ -1,7 +1,8 @@
 "use strict";
 
 require("dotenv").config();
-
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocs = require('swagger-jsdoc');
 const express = require("express");
 const cors = require("cors");
 
@@ -23,38 +24,39 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // swagger
-// const swaggerOptions = {
-//   definition: {
-//     openapi: "3.0.0",
-//     info: {
-//       title: "Bimbel Pilar API Documentation",
-//       version: "1.0.0",
-//       description: "Dokumentasi API backend untuk Sistem Informasi Administrasi dan Pembelajaran Bimbel Pilar Cendekia[cite: 17].",
-//     },
-//     servers: [
-//       {
-//         url: "/",
-//       },
-//     ],
-//     components: {
-//       securitySchemes: {
-//         bearerAuth: {
-//           type: "http",
-//           scheme: "bearer",
-//           bearerFormat: "JWT",
-//           description: "Masukkan token JWT dengan format: Bearer <token>",
-//         },
-//       },
-//     },
-//   },
-//   apis: ["./routes/*.js", "./controllers/*.js"],
-// };
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Bimbel Pilar API Documentation",
+      version: "1.0.0",
+      description: "Dokumentasi API backend untuk Sistem Informasi Administrasi dan Pembelajaran Bimbel Pilar Cendekia",
+    },
+    servers: [
+      {
+        url: process.env.API_BASE_URL || "http://localhost:3001/api",
+        description: "Server API (Development / Production)",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Masukkan token JWT dengan format: Bearer <token>",
+        },
+      },
+    },
+  },
+  apis: ["./routes/*.js", "./controllers/*.js"],
+};
 
-// const swaggerDocs = swaggerJsdoc(swaggerOptions);
-// const swaggerUiOptions = {
-//   customSiteTitle: "Bimbel Pilar API Docs",
-// };
-// app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOptions));
+const swaggerSpecs = swaggerDocs(swaggerOptions);
+const swaggerUiOptions = {
+  customSiteTitle: "Bimbel Pilar API Docs",
+};
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs, swaggerUiOptions));
 
 // Root endpoint
 app.get("/", (req, res) => {
