@@ -8,6 +8,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const kelasRoutes = require("./routes/kelasRoutes");
+const sppRoutes = require("./routes/sppRoutes");
 
 const app = express();
 const PORT = process.env.PORT;
@@ -66,6 +67,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/kelas", kelasRoutes)
+app.use("/api/spp", sppRoutes)
 
 //handling endpoint
 app.use((req, res) => {
