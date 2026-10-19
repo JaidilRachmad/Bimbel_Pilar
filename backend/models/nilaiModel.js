@@ -31,7 +31,7 @@ class PenilaianSiswaModel {
         if (sesi_id) query = query.eq("sesi_id", sesi_id);
         if (siswa_id) query = query.eq("siswa_id", siswa_id);
 
-        const { data, error, count } = await query
+        const { data, error, count, status, statusText } = await query
             .order("created_at", { ascending: false })
             .range(offset, offset + limit - 1);
 
