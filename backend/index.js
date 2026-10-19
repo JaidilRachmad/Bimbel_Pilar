@@ -9,6 +9,7 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const kelasRoutes = require("./routes/kelasRoutes");
 const sppRoutes = require("./routes/sppRoutes");
+const nilaiRoutes = require("./routes/nilaiRoutes");
 
 const app = express();
 const PORT = process.env.PORT;
@@ -66,8 +67,9 @@ app.get("/", (req, res) => {
 //sini routesnyaa 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/kelas", kelasRoutes)
-app.use("/api/spp", sppRoutes)
+app.use("/api/kelas", kelasRoutes);
+app.use("/api/spp", sppRoutes);
+app.use("/api/nilai", nilaiRoutes);
 
 //handling endpoint
 app.use((req, res) => {
