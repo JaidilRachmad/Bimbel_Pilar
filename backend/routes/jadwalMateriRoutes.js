@@ -7,7 +7,7 @@
  */
 const express = require("express");
 const JadwalMateriController = require("../controllers/jadwalMateriController");
-const { authenticateToken, authorizeRole} = require("../middlewares/authMiddleware");
+const { authenticateToken, authorizeRole} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
