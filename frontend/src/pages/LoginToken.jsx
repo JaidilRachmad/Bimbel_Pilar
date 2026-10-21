@@ -3,6 +3,7 @@ import { ArrowRight, KeyRound, Lock } from 'lucide-react'
 import AuthLayout from '../components/AuthLayout'
 import { useAuth } from '../context/AuthContext'
 import { getErrorInfo, loginWithToken } from '../services/authService'
+import { Link } from 'react-router-dom'
 import '../styles/auth.css'
 
 export default function LoginToken() {
@@ -62,6 +63,7 @@ export default function LoginToken() {
       </form>
 
       <p className="secure-note"><Lock size={12} /> SISTEM PEMBELAJARAN TERENKRIPSI</p>
+      <Link to="/admin/login" className="switch-link">Masuk sebagai Admin</Link>
     </AuthLayout>
   )
 }

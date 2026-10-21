@@ -4,6 +4,7 @@ import AuthLayout from '../components/AuthLayout'
 import { supabase } from '../config/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { getErrorInfo, loginAdmin } from '../services/authService'
+import { Link } from 'react-router-dom'
 import '../styles/auth.css'
 
 function formatCountdown(sec) {
@@ -146,6 +147,7 @@ export default function LoginAdmin() {
           )}
         </button>
       </form>
+      <Link to="/login" className="switch-link">Masuk dengan Token (Siswa/Tentor)</Link>
     </AuthLayout>
   )
 }
