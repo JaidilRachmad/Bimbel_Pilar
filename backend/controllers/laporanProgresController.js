@@ -6,6 +6,7 @@
 const LaporanProgresModel = require("../models/laporanProgresModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
+const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "siswa_id"]);

@@ -7,10 +7,8 @@
  * - Guru/Tentor: Tidak memiliki hak akses
  */
 const express = require("express");
-const config = require("../config/env");
 const LaporanProgresController = require("../controllers/laporanProgresController");
-const { authenticateToken } = require("../middlewares/auth");
-const { authorize } = require("../middlewares/permissionMiddlewares");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -25,7 +23,7 @@ router.use(authenticateToken);
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/me", authorize(config.roles.siswa), LaporanProgresController.getMyLaporan);
+router.get("/me", authorizeRoles("siswa"), LaporanProgresController.getMyLaporan);
 
 /**
  * @swagger
@@ -35,7 +33,7 @@ router.get("/me", authorize(config.roles.siswa), LaporanProgresController.getMyL
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/download", authorize(config.roles.admin, config.roles.siswa), LaporanProgresController.downloadLaporan);
+router.get("/:id/download", authorizeRoles("admin", "siswa"), LaporanProgresController.downloadLaporan);
 
 /**
  * @swagger
@@ -49,11 +47,11 @@ router.get("/:id/download", authorize(config.roles.admin, config.roles.siswa), L
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/", authorize(config.roles.admin), LaporanProgresController.getAll);
-router.post("/", authorize(config.roles.admin), LaporanProgresController.create);
+router.get("/", authorizeRoles("admin"), LaporanProgresController.getAll);
+router.post("/tambah", authorizeRoles("admin"), LaporanProgresController.create);
 
-router.get("/:id", authorize(config.roles.admin), LaporanProgresController.getById);
-router.put("/:id", authorize(config.roles.admin), LaporanProgresController.update);
-router.delete("/:id", authorize(config.roles.admin), LaporanProgresController.remove);
+router.get("/:id", authorizeRoles("admin"), LaporanProgresController.getById);
+router.put("/:id", authorizeRoles("admin"), LaporanProgresController.update);
+router.delete("/:id", authorizeRoles("admin"), LaporanProgresController.remove);
 
 module.exports = router;

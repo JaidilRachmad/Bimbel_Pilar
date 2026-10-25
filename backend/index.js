@@ -11,6 +11,7 @@ const userRoutes = require("./routes/userRoutes");
 const kelasRoutes = require("./routes/kelasRoutes");
 const sppRoutes = require("./routes/sppRoutes");
 const nilaiRoutes = require("./routes/nilaiRoutes");
+const laporanProgresRoutes = require("./routes/laporanProgresRoutes");
 
 const app = express();
 const PORT = process.env.PORT;
@@ -34,7 +35,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: process.env.API_BASE_URL,
+        url: process.env.API_BASE_URL || "http://localhost:3001/api",
         description: "Server API (Development / Production)",
       },
     ],
@@ -72,12 +73,13 @@ app.use("/api/user", userRoutes);
 app.use("/api/kelas", kelasRoutes);
 app.use("/api/spp", sppRoutes);
 app.use("/api/nilai", nilaiRoutes);
+app.use("/api/laporan", laporanProgresRoutes);
 
 //handling endpoint
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    message: "Endpoint tidak ditemukan." 
+  res.status(404).json({
+    success: false,
+    message: "Endpoint tidak ditemukan."
   });
 });
 
