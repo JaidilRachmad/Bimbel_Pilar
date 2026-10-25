@@ -89,4 +89,4 @@ router.get("/:id", KelasController.getById);
 router.put("/:id", KelasController.update);
 router.delete("/:id", KelasController.remove);
 
-module.exports = router;
+module.exports = router; 
