@@ -3,7 +3,7 @@
  * CONTROLLER (MVC) — Penilaian Siswa
  * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
  */
-const PenilaianSiswaModel = require("../models/penilaianSiswaModel");
+const PenilaianSiswaModel = require("../models/nilaiModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
@@ -43,15 +43,19 @@ function validateBody(body) {
         errors.push("siswa_id wajib diisi dan harus berformat UUID yang valid");
     }
 
-    if (typeof body.nilai !== "string" || body.nilai.trim() === "") {
-        errors.push("nilai wajib diisi (misal: angka atau predikat huruf seperti A, B, 85)");
+    if (body.nilai === undefined || body.nilai === null) {
+        errors.push("Nilai wajib diisi.");
+    } else if (typeof body.nilai !== "number" || !Number.isFinite(body.nilai)) {
+        errors.push("Nilai harus berupa angka yang valid (contoh: 85, 85.5, 90).");
+    } else if (body.nilai < 0 || body.nilai > 100) {
+        errors.push("Nilai harus berada di antara rentang 0 sampai 100.");
     }
 
     assertValid(errors);
     return {
         sesi_id: body.sesi_id,
         siswa_id: body.siswa_id,
-        nilai: body.nilai.trim(),
+        nilai: body.nilai,
         keterangan: body.keterangan ? body.keterangan.trim() : null,
     };
 }

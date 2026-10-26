@@ -1,40 +1,33 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import DashboardSiswa from './pages/siswa/DashboardSiswa';
-import LaporanProgres from './pages/siswa/LaporanProgres';
-import TagihanSpp from './pages/siswa/TagihanSpp';
-import DashboardAdmin from './pages/admin/DashboardAdmin';
-import DaftarPengguna from './pages/admin/DaftarPengguna';
-import DaftarKelas from './pages/admin/DaftarKelas';
-import ManajemenSpp from './pages/admin/ManajemenSpp';
-import NilaiReport from './pages/admin/NilaiReport';
-import DashboardTentor from './pages/tentor/DashboardTentor';
-
-
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import { GuestRoute, ProtectedRoute } from './components/RouteGuards'
+import LoginToken from './pages/LoginToken'
+import LoginAdmin from './pages/LoginAdmin'
+import DashboardPlaceholder from './pages/DashboardPlaceholder'
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        
-        {/* Rute Siswa */}
-        <Route path="/siswa" element={<DashboardSiswa />} />
-        <Route path="/siswa/nilai" element={<LaporanProgres />} />
-        <Route path="/siswa/spp" element={<TagihanSpp />} />
+      <AuthProvider>
+        <Routes>
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<LoginToken />} />
+            <Route path="/admin/login" element={<LoginAdmin />} />
+          </Route>
 
-        {/* Rute Admin */}
-        <Route path="/admin" element={<DashboardAdmin />} />
-        <Route path="/admin/pengguna" element={<DaftarPengguna />} />
-        <Route path="/admin/kelas" element={<DaftarKelas />} />
-        <Route path="/admin/spp" element={<ManajemenSpp />} />
-        <Route path="/admin/laporan" element={<NilaiReport />} />
+          <Route element={<ProtectedRoute roles={['admin']} />}>
+            <Route path="/admin" element={<DashboardPlaceholder title="Dashboard Admin" />} />
+          </Route>
+          <Route element={<ProtectedRoute roles={['tentor']} />}>
+            <Route path="/tentor" element={<DashboardPlaceholder title="Dashboard Tentor" />} />
+          </Route>
+          <Route element={<ProtectedRoute roles={['siswa']} />}>
+            <Route path="/siswa" element={<DashboardPlaceholder title="Dashboard Siswa" />} />
+          </Route>
 
-        {/* Rute Tentor */}
-        <Route path="/tentor" element={<DashboardTentor />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
-  );
+  )
 }
