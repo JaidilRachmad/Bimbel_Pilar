@@ -2,10 +2,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, School, Wallet, FileText, LogOut, Bell, Search, User 
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png'
 
 export default function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   // Menu khusus Admin
   const menuItems = [
@@ -16,9 +19,9 @@ export default function AdminLayout({ children }) {
     { name: 'Nilai & Report', path: '/admin/laporan', icon: <FileText className="w-5 h-5" /> },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('dev_role');
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -28,7 +31,7 @@ export default function AdminLayout({ children }) {
       <aside className="w-64 bg-[#0F172A] text-white flex flex-col flex-shrink-0">
         <div className="h-20 flex items-center px-4 border-b border-slate-700/50">
           <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1 mr-3 shrink-0">
-            <img src="/logo-pilar-cendekia.png" alt="Logo" className="w-full h-full object-contain" />
+            <img src={logo} alt="Logo Pilar Cendekia" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold leading-tight text-white">Pilar Cendekia</span>
