@@ -1,11 +1,62 @@
+import { useEffect, useState } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
-import { adminKelasStats, dummyKelas } from '../../data/dummy';
+import { adminKelasStats } from '../../data/dummy';
+import { getAllKelas } from '../../services/kelasService';
 import { 
   Plus, Users, School, BookOpen, AlertTriangle, 
-  Filter, ArrowUpDown, FileUp, FileDown, Edit, Trash2, Info 
+  Filter, FileUp, FileDown, Edit, Trash2, Info 
 } from 'lucide-react';
 
+const KAPASITAS_KELAS = 15;
+const LIMIT_KELAS = 10;
+
+function getWaliKelas(kelas) {
+  return (kelas.kelas_tentor ?? [])
+    .map(({ tentor_profile }) => tentor_profile?.nama)
+    .filter(Boolean)
+    .join(', ') || '-';
+}
+
 export default function DaftarKelas() {
+  const [kelasList, setKelasList] = useState([]);
+  const [meta, setMeta] = useState({ page: 1, limit: LIMIT_KELAS, total: 0, total_pages: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadKelas() {
+      setLoading(true);
+      setError('');
+
+      try {
+        const result = await getAllKelas({ page, limit: LIMIT_KELAS });
+        if (!Array.isArray(result?.data) || !result.meta) {
+          throw new Error('Format data kelas dari server tidak valid.');
+        }
+
+        if (active) {
+          setKelasList(result.data);
+          setMeta(result.meta);
+        }
+      } catch (requestError) {
+        if (active) {
+          setKelasList([]);
+          setError(requestError.response?.data?.message || requestError.message || 'Gagal memuat data kelas.');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadKelas();
+    return () => {
+      active = false;
+    };
+  }, [page]);
+
   return (
     <AdminLayout>
       {/* Header Halaman */}
@@ -101,13 +152,26 @@ export default function DaftarKelas() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {dummyKelas.map((kelas) => {
-                const isFull = kelas.jumlahSiswa >= kelas.kapasitas;
-                const percentage = (kelas.jumlahSiswa / kelas.kapasitas) * 100;
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-sm text-gray-500">Memuat data kelas...</td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-sm text-red-600">{error}</td>
+                </tr>
+              ) : kelasList.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-sm text-gray-500">Belum ada data kelas.</td>
+                </tr>
+              ) : kelasList.map((kelas) => {
+                const jumlahSiswa = kelas.kelas_siswa?.length ?? 0;
+                const isFull = jumlahSiswa >= KAPASITAS_KELAS;
+                const percentage = Math.min((jumlahSiswa / KAPASITAS_KELAS) * 100, 100);
                 
                 return (
                   <tr key={kelas.id} className="hover:bg-gray-50 transition group">
-                    <td className="p-4 text-sm font-bold text-gray-800">{kelas.nama}</td>
+                    <td className="p-4 text-sm font-bold text-gray-800">{kelas.nama_kelas}</td>
                     <td className="p-4 text-center">
                       <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
                         {kelas.jenjang}
@@ -116,7 +180,7 @@ export default function DaftarKelas() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-gray-700 min-w-[40px]">
-                          {kelas.jumlahSiswa} <span className="text-gray-400 font-normal">/ {kelas.kapasitas}</span>
+                          {jumlahSiswa} <span className="text-gray-400 font-normal">/ {KAPASITAS_KELAS}</span>
                         </span>
                         {/* Progress Bar */}
                         <div className="w-24 bg-gray-200 rounded-full h-1.5">
@@ -127,7 +191,7 @@ export default function DaftarKelas() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-sm text-gray-600">{kelas.waliKelas}</td>
+                    <td className="p-4 text-sm text-gray-600">{getWaliKelas(kelas)}</td>
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                         <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition" title="Edit">
@@ -147,13 +211,29 @@ export default function DaftarKelas() {
 
         {/* Footer Pagination */}
         <div className="p-4 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500">
-          <span>Menampilkan 1 - 4 dari 12 kelas</span>
+          <span>
+            {meta.total === 0
+              ? 'Menampilkan 0 kelas'
+              : `Menampilkan ${(page - 1) * meta.limit + 1} - ${Math.min(page * meta.limit, meta.total)} dari ${meta.total} kelas`}
+          </span>
           <div className="flex gap-1">
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50" disabled>Prev</button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded font-semibold">1</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">2</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">3</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Next</button>
+            <button
+              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setPage((currentPage) => currentPage - 1)}
+              disabled={loading || page <= 1}
+            >
+              Prev
+            </button>
+            <span className="px-3 py-1 font-semibold text-gray-700">
+              {meta.total_pages ? `${page} / ${meta.total_pages}` : '0'}
+            </span>
+            <button
+              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+              disabled={loading || page >= meta.total_pages}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
