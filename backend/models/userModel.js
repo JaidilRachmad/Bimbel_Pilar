@@ -144,7 +144,13 @@ class UserModel {
   }
 
   async findAllUsers(roleFilter) {
-    let query = supabase.from("profiles").select("id, role, token_akses, created_at");
+    let query = supabase.from("profiles").select(`
+      id, role, token_akses, created_at,
+      siswa_profile ( nama, no_telp, nama_wali,
+        kelas_siswa ( kelas:kelas_id ( id, nama_kelas ) )
+      ),
+      tentor_profile ( nama, no_telp, alamat )
+    `);
 
     if (roleFilter) {
       query = query.eq("role", roleFilter);
@@ -156,7 +162,18 @@ class UserModel {
       throw AppError.internal(`Gagal mengambil data pengguna: ${error.message}`);
     }
 
-    return profiles;
+    return profiles.map((p) => {
+      const kelasSiswa = p.siswa_profile?.kelas_siswa?.[0]?.kelas;
+      return {
+        id: p.id,
+        role: p.role,
+        token_akses: p.token_akses,
+        created_at: p.created_at,
+        nama: p.siswa_profile?.nama ?? p.tentor_profile?.nama ?? null,
+        no_telp: p.siswa_profile?.no_telp ?? p.tentor_profile?.no_telp ?? null,
+        kelas: kelasSiswa ? { id: kelasSiswa.id, nama: kelasSiswa.nama_kelas } : null,
+      };
+    });
   }
 
   async deleteUserProfile(userId) {
