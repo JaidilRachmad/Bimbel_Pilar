@@ -5,7 +5,23 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 class UserModel {
-  async createUserProfile({ role, tokenAkses, nama, noTelp, extraField }) {
+  async createUserProfile({ role, tokenAkses, nama, noTelp, extraField, kelasId }) {
+    if (role === "siswa") {
+      const { data: kelas, error: kelasError } = await supabase
+        .from("kelas")
+        .select("id")
+        .eq("id", kelasId)
+        .maybeSingle();
+
+      if (kelasError) {
+        throw AppError.internal(`Gagal memeriksa kelas siswa: ${kelasError.message}`);
+      }
+
+      if (!kelas) {
+        throw AppError.notFound("Kelas yang dipilih tidak ditemukan.");
+      }
+    }
+
     const userId = crypto.randomUUID();
 
     const { error: profileError } = await supabase
@@ -23,6 +39,29 @@ class UserModel {
 
       if (siswaError) {
         throw AppError.internal(`Gagal simpan siswa_profile: ${siswaError.message}`);
+      }
+
+      const { error: kelasSiswaError } = await supabase
+        .from("kelas_siswa")
+        .insert([{ siswa_id: userId, kelas_id: kelasId }]);
+
+      if (kelasSiswaError) {
+        const { error: rollbackSiswaError } = await supabase
+          .from("siswa_profile")
+          .delete()
+          .eq("id", userId);
+        const { error: rollbackProfileError } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", userId);
+        const rollbackErrors = [rollbackSiswaError, rollbackProfileError].filter(Boolean);
+        const rollbackMessage = rollbackErrors.length
+          ? ` Pembersihan akun gagal: ${rollbackErrors.map(({ message }) => message).join("; ")}`
+          : "";
+
+        throw AppError.internal(
+          `Gagal menghubungkan siswa ke kelas: ${kelasSiswaError.message}.${rollbackMessage}`
+        );
       }
     } else if (role === "tentor") {
       const { error: tentorError } = await supabase
