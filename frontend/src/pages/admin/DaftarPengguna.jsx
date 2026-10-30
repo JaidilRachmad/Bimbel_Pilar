@@ -14,12 +14,6 @@ const getTingkat = (nama) => nama.match(/\d+/)?.[0] ?? '?';
 const formatTanggal = (tanggal) =>
   tanggal ? new Date(tanggal).toLocaleDateString('id-ID') : '-';
 
-// Ambil angka tingkat dari nama kelas, contoh "Kelas 9A - Unggulan" -> "9"
-const getTingkat = (nama) => nama.match(/\d+/)?.[0] ?? '?';
-
-const formatTanggal = (tanggal) =>
-  tanggal ? new Date(tanggal).toLocaleDateString('id-ID') : '-';
-
 export default function DaftarPengguna() {
   const [activeTab, setActiveTab] = useState('tentor'); // 'tentor' atau 'siswa'
   const [searchQuery, setSearchQuery] = useState('');
