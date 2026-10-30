@@ -5,8 +5,10 @@ const tokenService = require("../models/tokenService");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const createAccount = asyncHandler(async (req, res) => {
-  const { role, nama, noTelp, extraField } = req.body;
+  const { role, nama, noTelp, extraField, kelasId } = req.body;
 
   if (!role || !nama || !noTelp) {
     throw AppError.badRequest("Field role, nama, dan noTelp wajib diisi!");
@@ -15,6 +17,15 @@ const createAccount = asyncHandler(async (req, res) => {
   if (!["siswa", "tentor"].includes(role)) {
     throw AppError.badRequest("Role harus berupa 'siswa' atau 'tentor'");
   }
+
+  if (role === "siswa" && !UUID_PATTERN.test(kelasId || "")) {
+    throw AppError.badRequest("kelasId wajib diisi dengan ID kelas yang valid untuk siswa.");
+  }
+
+  if (role === "tentor" && kelasId !== undefined) {
+    throw AppError.badRequest("Tentor tidak dapat ditambahkan ke kelas melalui endpoint ini.");
+  }
+
   const rawToken = tokenService.generateRandomToken();
   const hashedToken = tokenService.encrypt(rawToken);
   const newProfile = await userModel.createUserProfile({
@@ -22,7 +33,8 @@ const createAccount = asyncHandler(async (req, res) => {
     tokenAkses: hashedToken,
     nama,
     noTelp,
-    extraField
+    extraField,
+    kelasId
   });
 
   return sendSuccess(res, "Akun dan token akses berhasil dibuat!", {
