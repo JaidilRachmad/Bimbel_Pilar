@@ -2,22 +2,25 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { GuestRoute, ProtectedRoute } from './components/RouteGuards'
-// import LoginToken from './pages/LoginToken'
-// import LoginAdmin from './pages/LoginAdmin'
-// import AdminLayout from './layouts/AdminLayout'
-// import TentorLayout from './layouts/TentorLayout'
-// import DashboardLayout from './layouts/DashboardLayout'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginToken = lazy(() => import('./pages/LoginToken'))
 const LoginAdmin = lazy(() => import('./pages/LoginAdmin'))
 
-const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
-const TentorLayout = lazy(() => import('./layouts/TentorLayout'))
-const DashboardLayout = lazy(() => import('./layouts/DashboardLayout'))
+// siswa
+const DashboardSiswa = lazy(()=> import('./pages/siswa/DashboardSiswa'))
+const NilaiSiswa = lazy(() => import('./pages/siswa/LaporanProgres'))
+const TagihanSpp = lazy(() => import('./pages/siswa/TagihanSpp'))
 
+// tentor
+const DashboardTentor = lazy(()=> import('./pages/tentor/DashboardTentor'))
+
+// admin
+const DashboardAdmin = lazy(() => import('./pages/admin/DashboardAdmin'))
 const DaftarPengguna = lazy(() => import('./pages/admin/DaftarPengguna'))
 const DaftarKelas = lazy(() => import('./pages/admin/DaftarKelas'))
+const LaporanBelajar = lazy(() => import('./pages/admin/NilaiReport'))
+const ManajemenSpp = lazy(() => import('./pages/admin/ManajemenSpp'))
 
 function PageLoader() {
   return (
@@ -42,22 +45,28 @@ export default function App() {
             </Route>
 
             <Route element={<ProtectedRoute roles={['admin']} />}>
-              <Route path="/admin" element={<AdminLayout/>} />
+              <Route path="/admin" element={<DashboardAdmin/>} />
               <Route path="/admin/pengguna" element={<DaftarPengguna />} />
               <Route path="/admin/kelas" element={<DaftarKelas />} />
+              <Route path="/admin/laporan" element={<LaporanBelajar />} />
+              <Route path="/admin/spp" element={<ManajemenSpp />} />
             </Route>
             
             <Route element={<ProtectedRoute roles={['tentor']} />}>
-              <Route path="/tentor/*" element={<TentorLayout />} />
+              <Route path="/tentor" element={<DashboardTentor />} />
             </Route>
+
             <Route element={<ProtectedRoute roles={['siswa']} />}>
-              <Route path="/siswa/*" element={<DashboardLayout/>} />
+              <Route path="/siswa" element={<DashboardSiswa/>} />
+              <Route path="/siswa/nilai" element={<NilaiSiswa/>} />
+              <Route path="/siswa/spp" element={<TagihanSpp/>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Suspense>
       </AuthProvider>
+
     </BrowserRouter>
   )
 }
