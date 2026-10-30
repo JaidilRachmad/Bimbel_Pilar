@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
-import { getAllUsers } from '../../services/userService';
+import { createAccount, getAllUsers } from '../../services/userService';
 import { getErrorInfo } from '../../services/authService';
 import {
   UserPlus, Search, Edit, Trash2, Key, Filter, ChevronDown
 } from 'lucide-react';
+import AddUserModal from '../../components/admin/AddUserModal';
+import CreatedTokenModal from '../../components/admin/CreatedTokenModal';
+
+// Ambil angka tingkat dari nama kelas, contoh "Kelas 9A - Unggulan" -> "9"
+const getTingkat = (nama) => nama.match(/\d+/)?.[0] ?? '?';
+
+const formatTanggal = (tanggal) =>
+  tanggal ? new Date(tanggal).toLocaleDateString('id-ID') : '-';
 
 // Ambil angka tingkat dari nama kelas, contoh "Kelas 9A - Unggulan" -> "9"
 const getTingkat = (nama) => nama.match(/\d+/)?.[0] ?? '?';
@@ -16,23 +24,56 @@ export default function DaftarPengguna() {
   const [activeTab, setActiveTab] = useState('tentor'); // 'tentor' atau 'siswa'
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedRequest, setLoadedRequest] = useState('');
   const [error, setError] = useState('');
   const [openKelas, setOpenKelas] = useState(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createdToken, setCreatedToken] = useState('');
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const requestKey = `${activeTab}:${refreshVersion}`;
+  const loading = loadedRequest !== requestKey;
 
   // Ambil data sesuai tab yang aktif
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     getAllUsers(activeTab)
-      .then((data) => active && setUsers(data.users))
+      .then((data) => {
+        if (active) {
+          setUsers(data.users);
+          setError('');
+        }
+      })
       .catch((err) => active && setError(getErrorInfo(err).message))
-      .finally(() => active && setLoading(false));
+      .finally(() => active && setLoadedRequest(requestKey));
     return () => {
       active = false;
     };
-  }, [activeTab]);
+  }, [activeTab, refreshVersion, requestKey]);
+
+  const handleCreateAccount = async (account) => {
+    setSubmitting(true);
+    setCreateError('');
+
+    try {
+      const createdAccount = await createAccount(account);
+      if (!createdAccount?.token_akses_asli) {
+        throw new Error('Akun berhasil dikirim, tetapi token tidak diterima dari server.');
+      }
+
+      setAddModalOpen(false);
+      setCreatedToken(createdAccount.token_akses_asli);
+      setActiveTab(account.role);
+      setRefreshVersion((version) => version + 1);
+    } catch (requestError) {
+      setCreateError(requestError.response
+        ? getErrorInfo(requestError).message
+        : requestError.message || getErrorInfo(requestError).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Filter berdasarkan nama. Field nama belum dikembalikan backend, jadi pakai fallback
   const filteredUsers = users.filter((user) =>
@@ -54,6 +95,7 @@ export default function DaftarPengguna() {
     setActiveTab(tab);
     setSearchQuery('');
     setOpenKelas(null);
+    setRefreshVersion((version) => version + 1);
   };
 
   const renderTable = (list) => (
@@ -156,7 +198,7 @@ export default function DaftarPengguna() {
           <p className="text-gray-500 mt-1">Kelola akun akses untuk Tentor dan Siswa Bimbel Pilar.</p>
         </div>
 
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition text-sm font-semibold shadow-sm">
+        <button onClick={() => { setCreateError(''); setAddModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition text-sm font-semibold shadow-sm">
           <UserPlus className="w-4 h-4" /> Tambah Pengguna
         </button>
       </div>
@@ -218,6 +260,17 @@ export default function DaftarPengguna() {
           </div>
         </div>
       </div>
+      {addModalOpen && (
+        <AddUserModal
+          onClose={() => setAddModalOpen(false)}
+          onSubmit={handleCreateAccount}
+          submitting={submitting}
+          error={createError}
+        />
+      )}
+      {createdToken && (
+        <CreatedTokenModal token={createdToken} onClose={() => setCreatedToken('')} />
+      )}
     </AdminLayout>
   );
 }
