@@ -3,10 +3,13 @@ import {
   LayoutDashboard, FileText, CreditCard, LogOut, Bell, Search, User 
 } from 'lucide-react';
 import { userSiswa } from '../data/dummy';
+import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png'
 
 export default function DashboardLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const menuItems = [
     { name: 'Dashboard', path: '/siswa', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -14,10 +17,9 @@ export default function DashboardLayout({ children }) {
     { name: 'Tagihan SPP', path: '/siswa/spp', icon: <CreditCard className="w-5 h-5" /> },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('dev_role');
-    localStorage.removeItem('dev_token');
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -32,11 +34,7 @@ export default function DashboardLayout({ children }) {
         <div className="h-20 flex items-center px-6 border-b border-slate-700/50 shrink-0">
           {/* Bungkus gambar di div fixed size agar tidak meluber */}
           <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1 mr-3 shrink-0 overflow-hidden">
-            <img 
-              src="/logo-pilar-cendekia.png" 
-              alt="Logo" 
-              className="w-full h-full object-contain" 
-            />
+            <img src={logo} alt="Logo Pilar Cendekia" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold leading-tight text-white">Pilar<br/>Cendekia</span>

@@ -3,15 +3,16 @@
  * ROUTES — Penilaian Siswa
  * Mengatur hak akses endpoint: Siswa (milik sendiri), tentor & Admin (CRUD dan Analisis Laporan).
  */
+require("dotenv").config();
 const express = require("express");
-const config = require("../config/env");
-const PenilaianSiswaController = require("../controllers/penilaianSiswaController");
-const { authenticateToken } = require("../middlewares/auth");
-const { authorize } = require("../middlewares/permissionMiddlewares");
-
 const router = express.Router();
+const NilaiController = require("../controllers/nilaiController");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
-// Wajib autentikasi untuk semua endpoint
+const ADMIN_ROLE =  "admin";
+const SISWA_ROLE = "siswa";
+const TENTOR_ROLE = "tentor"
+
 router.use(authenticateToken);
 
 /**
@@ -26,7 +27,7 @@ router.use(authenticateToken);
  *       401: { description: Belum login }
  */
 // Endpoint khusus Siswa (hanya melihat nilai miliknya sendiri)
-router.get("/me", authorize(config.roles.siswa), PenilaianSiswaController.getMyNilai);
+router.get("/me", authorizeRoles(SISWA_ROLE), NilaiController.getMyNilai);
 
 /**
  * @swagger
@@ -40,12 +41,12 @@ router.get("/me", authorize(config.roles.siswa), PenilaianSiswaController.getMyN
  *     tags: [Penilaian Siswa]
  *     security: [{ bearerAuth: [] }]
  */
-// tentor dan Admin dapat membaca data nilai (Admin untuk generate laporan, tentor untuk input)[cite: 48]
-router.get("/", authorize(config.roles.tentor, config.roles.admin), PenilaianSiswaController.getAll);
-router.post("/", authorize(config.roles.tentor), PenilaianSiswaController.create);
+// Tentor dan Admin dapat membaca data nilai, sedangkan input hanya oleh Tentor
+router.get("/", authorizeRoles(TENTOR_ROLE, ADMIN_ROLE), NilaiController.getAll);
+router.post("/", authorizeRoles(TENTOR_ROLE), NilaiController.create);
 
-router.get("/:id", authorize(config.roles.tentor, config.roles.admin), PenilaianSiswaController.getById);
-router.put("/:id", authorize(config.roles.tentor), PenilaianSiswaController.update);
-router.delete("/:id", authorize(config.roles.tentor), PenilaianSiswaController.remove);
+router.get("/:id", authorizeRoles(TENTOR_ROLE, ADMIN_ROLE), NilaiController.getById);
+router.put("/:id", authorizeRoles(TENTOR_ROLE), NilaiController.update);
+router.delete("/:id", authorizeRoles(TENTOR_ROLE), NilaiController.remove);
 
 module.exports = router;
