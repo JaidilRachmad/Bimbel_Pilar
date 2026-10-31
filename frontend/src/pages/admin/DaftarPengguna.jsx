@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../layouts/AdminLayout';
-import { createAccount, getAllUsers } from '../../services/userService';
+import { createAccount, deleteUserAccount, getAllUsers } from '../../services/userService';
 import { getErrorInfo } from '../../services/authService';
 import {
   UserPlus, Search, Edit, Trash2, Key, Filter, ChevronDown
@@ -26,6 +26,8 @@ export default function DaftarPengguna() {
   const [createError, setCreateError] = useState('');
   const [createdToken, setCreatedToken] = useState('');
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
   const requestKey = `${activeTab}:${refreshVersion}`;
   const loading = loadedRequest !== requestKey;
 
@@ -92,6 +94,22 @@ export default function DaftarPengguna() {
     setRefreshVersion((version) => version + 1);
   };
 
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Hapus akun ${user.nama ?? 'pengguna ini'}?`)) return;
+
+    setDeletingUserId(user.id);
+    setDeleteError('');
+
+    try {
+      await deleteUserAccount(user.id);
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser.id !== user.id));
+    } catch (requestError) {
+      setDeleteError(getErrorInfo(requestError).message);
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   const renderTable = (list) => (
     <table className="w-full text-left border-collapse">
       <thead>
@@ -129,7 +147,13 @@ export default function DaftarPengguna() {
                 <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition" title="Edit">
                   <Edit className="w-4 h-4" />
                 </button>
-                <button className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition" title="Hapus">
+                <button
+                  onClick={() => handleDeleteUser(user)}
+                  disabled={deletingUserId === user.id}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition disabled:cursor-wait disabled:opacity-50"
+                  title="Hapus"
+                  aria-label={`Hapus ${user.nama ?? 'pengguna'}`}
+                >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -241,6 +265,7 @@ export default function DaftarPengguna() {
           </button>
         </div>
 
+        {deleteError && <p role="alert" className="p-4 text-sm text-red-600">{deleteError}</p>}
         {renderContent()}
 
         {/* Footer */}
