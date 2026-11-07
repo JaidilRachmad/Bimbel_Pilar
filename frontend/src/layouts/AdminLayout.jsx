@@ -7,7 +7,6 @@ export default function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Menu khusus Admin
   const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: 'Daftar Pengguna', path: '/admin/pengguna', icon: <Users className="w-5 h-5" /> },
@@ -18,13 +17,14 @@ export default function AdminLayout({ children }) {
 
   const handleLogout = () => {
     localStorage.removeItem('dev_role');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-gray-900 overflow-hidden">
       
-      {/* ================= SIDEBAR ================= */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-[#0F172A] text-white flex flex-col flex-shrink-0">
         <div className="h-20 flex items-center px-4 border-b border-slate-700/50">
           <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1 mr-3 shrink-0">
@@ -64,10 +64,8 @@ export default function AdminLayout({ children }) {
         </div>
       </aside>
 
-      {/* ================= MAIN CONTENT ================= */}
+      {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Topbar */}
         <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 flex-shrink-0">
           <div className="relative w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
