@@ -5,20 +5,13 @@ import {
 import { userSiswa } from '../data/dummy';
 
 export default function DashboardLayout({ children }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  const menuItems = [
-    { name: 'Dashboard', path: '/siswa', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: 'Laporan Progres Belajar', path: '/siswa/nilai', icon: <FileText className="w-5 h-5" /> },
-    { name: 'Tagihan SPP', path: '/siswa/spp', icon: <CreditCard className="w-5 h-5" /> },
-  ];
-
-  const handleLogout = () => {
-    localStorage.removeItem('dev_role');
-    localStorage.removeItem('dev_token');
-    navigate('/login');
-  };
+  const { user } = useAuth();
+  const role = user?.role;
+  const name = user?.nama ?? (role === 'admin' ? 'Admin' : roleLabel[role] ?? 'Pengguna');
+  const detail = role === 'siswa' ? user?.kelas ?? 'Siswa' : roleLabel[role] ?? 'Pengguna';
+  const avatarClass = role === 'tentor'
+    ? 'bg-orange-100 text-orange-600'
+    : 'bg-blue-100 text-blue-600';
 
   return (
     // h-screen w-screen overflow-hidden memastikan layout tidak melebar keluar layar
