@@ -8,6 +8,6 @@ if (!supabaseUrl || !supabaseKey) {
     throw new Error('SOP Error: SUPABASE_URL atau SUPABASE_KEY belum diset di file .env!');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey, supabaseServiceRoleKey ? { serviceRoleKey: supabaseServiceRoleKey } : undefined);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = supabase;
