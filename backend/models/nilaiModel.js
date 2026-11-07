@@ -25,12 +25,27 @@ function pickWritable(input = {}) {
 class PenilaianSiswaModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
 
-    static async getPaginated({ page, limit, sesi_id, siswa_id }) {
+    static async getPaginated({ page, limit, sesi_id, siswa_id, tentor_id }) {
         const offset = (page - 1) * limit;
         let query = supabase.from(TABLE).select(COLUMNS_WITH_SESSION, { count: "exact" });
         
         if (sesi_id) query = query.eq("sesi_id", sesi_id);
         if (siswa_id) query = query.eq("siswa_id", siswa_id);
+        if (tentor_id) {
+            const { data: sessions, error: sessionError } = await supabase
+                .from("sesi_pembelajaran")
+                .select("id")
+                .eq("tentor_id", tentor_id);
+            if (sessionError) throw sessionError;
+            const sessionIds = (sessions || []).map(({ id }) => id);
+            if (sesi_id && !sessionIds.includes(sesi_id)) {
+                return { items: [], meta: { page, limit, total: 0, total_pages: 0 } };
+            }
+            if (sessionIds.length === 0) {
+                return { items: [], meta: { page, limit, total: 0, total_pages: 0 } };
+            }
+            query = query.in("sesi_id", sesi_id ? [sesi_id] : sessionIds);
+        }
 
         const { data, error, count, status, statusText } = await query
             .order("created_at", { ascending: false })

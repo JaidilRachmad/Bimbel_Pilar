@@ -40,7 +40,16 @@ class KelasTentorModel {
             .from(TABLE)
             .select(`
                 ${COLUMNS},
-                kelas:kelas_id (id, nama_kelas, jenjang, kelas_siswa (id))
+                kelas:kelas_id (
+                    id,
+                    nama_kelas,
+                    jenjang,
+                    kelas_siswa (
+                        id,
+                        siswa_id,
+                        siswa_profile:siswa_id (id, nama)
+                    )
+                )
             `)
             .eq("tentor_id", tentorId)
             .order("created_at", { ascending: false });
