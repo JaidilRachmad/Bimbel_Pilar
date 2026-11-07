@@ -4,7 +4,7 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 const TABLE = "tagihan_spp";
-const COLUMNS = "id, siswa_id, nominal, status, tanggal_jatuh_tempo, bulan, tahun, created_at, updated_at";
+const COLUMNS = "id, siswa_id, nominal, status, tanggal_jatuh_tempo, bulan_mulai, tahun_mulai, bulan_selesai, tahun_selesai, created_at, updated_at, siswa_profile(nama), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
 const NOT_FOUND = "Tagihan SPP tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
@@ -12,8 +12,10 @@ const WRITABLE_FIELDS = Object.freeze([
     "nominal",
     "status",
     "tanggal_jatuh_tempo",
-    "bulan",
-    "tahun",
+    "bulan_mulai",
+    "tahun_mulai",
+    "bulan_selesai",
+    "tahun_selesai",
 ]);
 
 function pickWritable(input = {}) {
@@ -28,17 +30,16 @@ function pickWritable(input = {}) {
 class TagihanSppModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
 
-    // ======================= ATURAN BISNIS & QUERY =======================
-
     static async getPaginated({ page, limit, status }) {
         const offset = (page - 1) * limit;
         let query = supabase.from(TABLE).select(COLUMNS, { count: "exact" });
         
         if (status) query = query.eq("status", status);
 
+        // PERBAIKAN: Gunakan tahun_mulai dan bulan_mulai untuk sorting
         const { data, error, count } = await query
-            .order("tahun", { ascending: false })
-            .order("bulan", { ascending: false })
+            .order("tahun_mulai", { ascending: false })
+            .order("bulan_mulai", { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
@@ -48,6 +49,7 @@ class TagihanSppModel {
         };
     }
 
+    // ... (Fungsi getById, create, update, remove, getBySiswaId biarkan sama seperti aslinya) ...
     static async getById(id) {
         const { data, error } = await supabase.from(TABLE).select(COLUMNS).eq("id", id).maybeSingle();
         if (error) throw error;
@@ -60,49 +62,40 @@ class TagihanSppModel {
             .from(TABLE)
             .select(COLUMNS)
             .eq("siswa_id", siswaId)
-            .order("tahun", { ascending: false })
-            .order("bulan", { ascending: false });
+            .order("tahun_mulai", { ascending: false })
+            .order("bulan_mulai", { ascending: false });
 
         if (error) throw error;
         return data;
     }
 
     static async create(input) {
-        const payload = {
-            ...pickWritable(input),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        };
+        const payload = { ...pickWritable(input), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         const { data, error } = await supabase.from(TABLE).insert(payload).select(COLUMNS).single();
         if (error) throw error;
         return data;
     }
 
     static async update(id, input) {
-        const payload = {
-            ...pickWritable(input),
-            updated_at: new Date().toISOString(),
-        };
-        const { data, error } = await supabase
-            .from(TABLE)
-            .update(payload)
-            .eq("id", id)
-            .select(COLUMNS)
-            .maybeSingle();
-
+        const payload = { ...pickWritable(input), updated_at: new Date().toISOString() };
+        const { data, error } = await supabase.from(TABLE).update(payload).eq("id", id).select(COLUMNS).maybeSingle();
         if (error) throw error;
         if (!data) throw AppError.notFound(NOT_FOUND);
         return data;
     }
 
-    static async remove(id) {
+    static async updateInvoiceDate(tagihanId, tanggal_pembayaran) {
         const { data, error } = await supabase
-            .from(TABLE)
-            .delete()
-            .eq("id", id)
-            .select("id")
-            .maybeSingle();
+            .from('invoice_pembayaran')
+            .update({ tanggal_pembayaran: tanggal_pembayaran })
+            .eq('tagihan_id', tagihanId)
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
 
+    static async remove(id) {
+        const { data, error } = await supabase.from(TABLE).delete().eq("id", id).select("id").maybeSingle();
         if (error) throw error;
         if (!data) throw AppError.notFound(NOT_FOUND);
     }

@@ -13,6 +13,7 @@ const kelasTentorRoutes = require("./routes/kelasTentorRoutes");
 const sppRoutes = require("./routes/sppRoutes");
 const nilaiRoutes = require("./routes/nilaiRoutes");
 const laporanProgresRoutes = require("./routes/laporanProgresRoutes");
+const tagihanSppRoutes = require("./routes/sppRoutes");
 
 const app = express();
 const PORT = process.env.PORT;
@@ -75,6 +76,7 @@ app.use("/api/kelas-tentor", kelasTentorRoutes);
 app.use("/api/spp", sppRoutes);
 app.use("/api/nilai", nilaiRoutes);
 app.use("/api/laporan", laporanProgresRoutes);
+app.use('/api/tagihan-spp', require('./routes/sppRoutes'));
 
 // Handling 404
 app.use((req, res) => {
