@@ -7,6 +7,7 @@ import {
   updateAccessToken,
   updateUserData,
 } from '../../services/userService';
+import { syncTentorKelas } from '../../services/kelasTentorService';
 import { getErrorInfo } from '../../services/authService';
 import {
   UserPlus, Search, Edit, Trash2, Key, Filter, ChevronDown, LoaderCircle, RefreshCw
@@ -66,9 +67,13 @@ export default function DaftarPengguna() {
     setCreateError('');
 
     try {
-      const createdAccount = await createAccount(account);
+      const { kelasIds = [], ...profileData } = account;
+      const createdAccount = await createAccount(profileData);
       if (!createdAccount?.token_akses_asli) {
         throw new Error('Akun berhasil dikirim, tetapi token tidak diterima dari server.');
+      }
+      if (account.role === 'tentor') {
+        await syncTentorKelas(createdAccount.id, kelasIds);
       }
 
       setAddModalOpen(false);
@@ -93,7 +98,11 @@ export default function DaftarPengguna() {
     setCreateError('');
 
     try {
-      await updateUserData(editingUser.id, account);
+      const { kelasIds = [], ...profileData } = account;
+      await updateUserData(editingUser.id, profileData);
+      if (editingUser.role === 'tentor') {
+        await syncTentorKelas(editingUser.id, kelasIds);
+      }
       setUsers((currentUsers) => currentUsers.map((user) => (
         user.id === editingUser.id
           ? { ...user, nama: account.nama, no_telp: account.noTelp, extraField: account.extraField }

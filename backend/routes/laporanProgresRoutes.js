@@ -17,7 +17,7 @@ router.use(authenticateToken);
 
 /**
  * @swagger
- * /laporan-progres/me:
+ * /laporan/me:
  *   get:
  *     summary: Siswa melihat daftar laporan progres belajar miliknya sendiri
  *     tags: [Laporan Progres]
@@ -27,7 +27,41 @@ router.get("/me", authorizeRoles("siswa"), LaporanProgresController.getMyLaporan
 
 /**
  * @swagger
- * /laporan-progres/{id}/download:
+ * /laporan/generate/{siswaId}:
+ *   post:
+ *     summary: Generate laporan berdasarkan nilai dan catatan tentor milik siswa (Akses Admin)
+ *     tags: [Laporan Progres]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: siswaId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               periode:
+ *                 type: string
+ *                 example: "April 2026"
+ *     responses:
+ *       200: { description: Laporan berhasil digenerate }
+ *       400: { description: siswaId tidak valid }
+ *       401: { description: Belum login }
+ *       403: { description: Hanya admin yang dapat men-generate laporan }
+ *       404: { description: Data siswa tidak ditemukan }
+ *       500: { description: Error server atau layanan AI }
+ */
+router.post("/generate/:siswaId", authorizeRoles("admin"), LaporanProgresController.generateReport);
+
+/**
+ * @swagger
+ * /laporan/{id}/download:
  *   get:
  *     summary: Siswa atau Admin mengunduh dokumen laporan progres
  *     tags: [Laporan Progres]
@@ -35,17 +69,24 @@ router.get("/me", authorizeRoles("siswa"), LaporanProgresController.getMyLaporan
  */
 router.get("/:id/download", authorizeRoles("admin", "siswa"), LaporanProgresController.downloadLaporan);
 
+router.get("/status", authorizeRoles("admin"), LaporanProgresController.getReportStatuses);
+
 /**
  * @swagger
- * /laporan-progres:
+ * /laporan:
  *   get:
- *     summary: Daftar seluruh laporan progres (Akses Admin)
+ *     summary: Daftar laporan progres dengan filter siswa atau periode (Akses Admin)
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
+ * /laporan/simpan:
  *   post:
- *     summary: Tambah atau generate laporan progres baru (Akses Admin)
+ *     summary: Simpan atau perbarui laporan untuk siswa dan periode yang sama (Akses Admin)
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Laporan berhasil disimpan atau diperbarui }
+ *       400: { description: Validasi gagal atau data terkait tidak valid }
+ *       409: { description: Konflik data laporan }
  */
 router.get("/", authorizeRoles("admin"), LaporanProgresController.getAll);
 router.post("/tambah", authorizeRoles("admin"), LaporanProgresController.create);

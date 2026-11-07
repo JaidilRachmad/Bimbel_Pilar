@@ -9,6 +9,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const kelasRoutes = require("./routes/kelasRoutes");
+const kelasTentorRoutes = require("./routes/kelasTentorRoutes");
 const sppRoutes = require("./routes/sppRoutes");
 const nilaiRoutes = require("./routes/nilaiRoutes");
 const laporanProgresRoutes = require("./routes/laporanProgresRoutes");
@@ -45,7 +46,6 @@ const swaggerOptions = {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
-          description: "Masukkan token JWT dengan format: Bearer <token>",
         },
       },
     },
@@ -67,15 +67,16 @@ app.get("/", (req, res) => {
   });
 });
 
-//sini routesnyaa 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/kelas", kelasRoutes);
+app.use("/api/kelas-tentor", kelasTentorRoutes);
 app.use("/api/spp", sppRoutes);
 app.use("/api/nilai", nilaiRoutes);
 app.use("/api/laporan", laporanProgresRoutes);
 
-//handling endpoint
+// Handling 404
 app.use((req, res) => {
   res.status(404).json({
     success: false,

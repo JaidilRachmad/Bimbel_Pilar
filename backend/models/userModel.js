@@ -8,6 +8,7 @@ const BULAN_INDONESIA = Object.freeze([
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember"
 ]);
+const USER_PAGE_SIZE = 1000;
 
 async function rollbackSiswaCreation(userId) {
   const rollbackOperations = [
@@ -212,26 +213,44 @@ class UserModel {
   }
 
   async findAllUsers(roleFilter) {
-    let query = supabase.from("profiles").select(`
-      id, role, token_akses, created_at,
-      siswa_profile ( nama, no_telp, nama_wali,
-        kelas_siswa ( kelas:kelas_id ( id, nama_kelas ) )
-      ),
-      tentor_profile ( nama, no_telp, alamat )
-    `);
+    const profiles = [];
+    let offset = 0;
 
-    if (roleFilter) {
-      query = query.eq("role", roleFilter);
-    }
+    while (true) {
+      let query = supabase.from("profiles").select(`
+        id, role, token_akses, created_at,
+        siswa_profile ( nama, no_telp, nama_wali,
+          kelas_siswa ( kelas:kelas_id ( id, nama_kelas ) )
+        ),
+        tentor_profile ( nama, no_telp, alamat )
+      `, { count: "exact" });
 
-    const { data: profiles, error } = await query;
+      if (roleFilter) query = query.eq("role", roleFilter);
 
-    if (error) {
-      throw AppError.internal(`Gagal mengambil data pengguna: ${error.message}`);
+      const { data, error, count } = await query
+        .order("id", { ascending: true })
+        .range(offset, offset + USER_PAGE_SIZE - 1);
+
+      if (error) {
+        throw AppError.internal(`Gagal mengambil data pengguna: ${error.message}`);
+      }
+
+      profiles.push(...data);
+      if (!Number.isInteger(count) || count < 0) {
+        throw AppError.internal("Gagal mengambil jumlah data pengguna dari database.");
+      }
+      if (offset + data.length >= count) break;
+      if (data.length === 0) {
+        throw AppError.internal("Gagal memuat seluruh data pengguna: halaman pengguna kosong sebelum data selesai diambil.");
+      }
+      offset += data.length;
     }
 
     return profiles.map((p) => {
-      const kelasSiswa = p.siswa_profile?.kelas_siswa?.[0]?.kelas;
+      const kelasList = (p.siswa_profile?.kelas_siswa ?? [])
+        .map((membership) => membership.kelas)
+        .filter(Boolean)
+        .map((kelas) => ({ id: kelas.id, nama: kelas.nama_kelas }));
       return {
         id: p.id,
         role: p.role,
@@ -240,7 +259,8 @@ class UserModel {
         nama: p.siswa_profile?.nama ?? p.tentor_profile?.nama ?? null,
         no_telp: p.siswa_profile?.no_telp ?? p.tentor_profile?.no_telp ?? null,
         extraField: p.siswa_profile?.nama_wali ?? p.tentor_profile?.alamat ?? null,
-        kelas: kelasSiswa ? { id: kelasSiswa.id, nama: kelasSiswa.nama_kelas } : null,
+        kelas: kelasList[0] ?? null,
+        kelasList,
       };
     });
   }

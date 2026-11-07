@@ -169,7 +169,7 @@ export default function DaftarKelas() {
                 <th className="p-4 font-semibold border-b border-gray-200">Nama Kelas</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Jenjang</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Jumlah Siswa</th>
-                <th className="p-4 font-semibold border-b border-gray-200">Wali Kelas</th>
+                <th className="p-4 font-semibold border-b border-gray-200">Daftar Tentor</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Aksi</th>
               </tr>
             </thead>

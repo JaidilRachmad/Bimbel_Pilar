@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { GraduationCap, UserRoundPlus, Users, X } from 'lucide-react'
 import { getAllKelas } from '../../services/kelasService'
+import { getKelasTentor } from '../../services/kelasTentorService'
 import AddSiswaCard from './AddSiswaCard'
 import AddTentorCard from './AddTentorCard'
 
@@ -16,17 +17,20 @@ export default function AddUserModal({
   const [kelasList, setKelasList] = useState([])
   const [kelasLoaded, setKelasLoaded] = useState(false)
   const [kelasError, setKelasError] = useState('')
-  const kelasLoading = role === 'siswa' && !kelasLoaded && !kelasError
+  const [tentorKelasIds, setTentorKelasIds] = useState([])
+  const kelasLoading = (role === 'siswa' || role === 'tentor') && !kelasLoaded && !kelasError
 
   const returnToRoleSelection = () => {
     setRole(null)
     setKelasList([])
     setKelasLoaded(false)
     setKelasError('')
+    setTentorKelasIds([])
   }
 
   useEffect(() => {
-    if (mode !== 'create' || role !== 'siswa' || kelasLoaded) return undefined
+    if (role !== 'siswa' && role !== 'tentor') return undefined
+    if (kelasLoaded) return undefined
 
     let active = true
 
@@ -46,7 +50,19 @@ export default function AddUserModal({
           allKelas.push(...result.data)
         }
 
-        if (active) setKelasList(allKelas)
+        let currentTentorKelasIds = []
+        if (role === 'tentor' && mode === 'edit' && user?.id) {
+          const assignmentResult = await getKelasTentor({ tentor_id: user.id })
+          if (!Array.isArray(assignmentResult?.data) || !assignmentResult.meta) {
+            throw new Error('Format data penugasan tentor dari server tidak valid.')
+          }
+          currentTentorKelasIds = assignmentResult.data.map((assignment) => assignment.kelas_id)
+        }
+
+        if (active) {
+          setKelasList(allKelas)
+          setTentorKelasIds(currentTentorKelasIds)
+        }
       } catch (requestError) {
         if (active) {
           setKelasError(requestError.response?.data?.message || requestError.message || 'Gagal memuat kelas.')
@@ -60,7 +76,7 @@ export default function AddUserModal({
     return () => {
       active = false
     }
-  }, [mode, role, kelasLoaded])
+  }, [mode, role, user?.id, kelasLoaded])
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4" role="presentation">
@@ -98,6 +114,10 @@ export default function AddUserModal({
           <AddTentorCard
             mode={mode}
             initialData={user}
+            kelasList={kelasList}
+            kelasLoading={kelasLoading}
+            kelasError={kelasError}
+            initialKelasIds={tentorKelasIds}
             onSubmit={onSubmit}
             onBack={returnToRoleSelection}
             submitting={submitting}
