@@ -4,12 +4,12 @@
  * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
  */
 const LaporanProgresModel = require("../models/laporanProgresModel");
+const geminiService = require("../services/geminiService");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
-const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "siswa_id"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "siswa_id", "periode"]);
 
 function assertValid(errors) {
     if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
@@ -44,13 +44,30 @@ function validateBody(body) {
         errors.push("periode wajib diisi (misal: April 2026)");
     }
 
+    for (const field of ["catatan_wali_kelas", "saran_pengembangan"]) {
+        if (body[field] !== undefined && body[field] !== null && typeof body[field] !== "string") {
+            errors.push(`${field} harus berupa teks`);
+        }
+    }
+
+    if (
+        (typeof body.catatan_wali_kelas !== "string" || body.catatan_wali_kelas.trim() === "")
+        && (typeof body.saran_pengembangan !== "string" || body.saran_pengembangan.trim() === "")
+    ) {
+        errors.push("Catatan wali kelas atau saran pengembangan wajib diisi");
+    }
+
+    if (body.nilai_id !== undefined && body.nilai_id !== null && !UUID_PATTERN.test(body.nilai_id)) {
+        errors.push("nilai_id harus berformat UUID yang valid");
+    }
+
     assertValid(errors);
     return {
         siswa_id: body.siswa_id,
         periode: body.periode.trim(),
-        catatan_wali_kelas: body.catatan_wali_kelas ? body.catatan_wali_kelas.trim() : null,
-        saran_pengembangan: body.saran_pengembangan ? body.saran_pengembangan.trim() : null,
-        nilai_id: body.nilai_id && UUID_PATTERN.test(body.nilai_id) ? body.nilai_id : null,
+        catatan_wali_kelas: body.catatan_wali_kelas?.trim() || null,
+        saran_pengembangan: body.saran_pengembangan?.trim() || null,
+        nilai_id: body.nilai_id || null,
     };
 }
 
@@ -71,26 +88,40 @@ function validateListQuery(query) {
         siswa_id = query.siswa_id;
     }
 
+    let periode;
+    if (query.periode !== undefined) {
+        if (typeof query.periode !== "string" || query.periode.trim() === "") {
+            errors.push("Filter periode tidak valid");
+        } else {
+            periode = query.periode.trim();
+        }
+    }
+
     assertValid(errors);
-    return { page, limit, siswa_id };
+    return { page, limit, siswa_id, periode };
 }
 
 const LaporanProgresController = {
     getAll: asyncHandler(async (req, res) => {
         const { items, meta } = await LaporanProgresModel.getPaginated(validateListQuery(req.query));
-        return sendSuccess(res, 200, { data: items, meta });
+        return sendSuccess(res, "Daftar laporan progres berhasil dimuat", { data: items, meta });
+    }),
+
+    getReportStatuses: asyncHandler(async (req, res) => {
+        const siswaIds = await LaporanProgresModel.getStudentIdsWithReports();
+        return sendSuccess(res, "Status laporan siswa berhasil dimuat", { siswa_ids: siswaIds });
     }),
 
     getById: asyncHandler(async (req, res) => {
         const id = validateId(req.params);
         const data = await LaporanProgresModel.getById(id);
-        return sendSuccess(res, 200, { data });
+        return sendSuccess(res, "Detail laporan progres berhasil dimuat", data);
     }),
 
     getMyLaporan: asyncHandler(async (req, res) => {
         const siswaId = req.user.siswa_id || req.user.id;
         const data = await LaporanProgresModel.getBySiswaId(siswaId);
-        return sendSuccess(res, 200, { data });
+        return sendSuccess(res, "Daftar laporan progres siswa berhasil dimuat", data);
     }),
 
     downloadLaporan: asyncHandler(async (req, res) => {
@@ -105,24 +136,76 @@ const LaporanProgresController = {
             }
         }
 
-        // Response siap diunduh (bisa dikembangkan ke generate PDF atau ambil dari Supabase Storage)
-        return sendSuccess(res, 200, { message: "Laporan siap diunduh", data });
+        return sendSuccess(res, "Laporan siap diunduh", data);
     }),
 
     create: asyncHandler(async (req, res) => {
         const data = await LaporanProgresModel.create(validateBody(req.body));
-        return sendSuccess(res, 201, { message: "Laporan progres berhasil ditambahkan", data });
+        return sendSuccess(res, "Laporan progres berhasil disimpan atau diperbarui", data, 200);
     }),
 
     update: asyncHandler(async (req, res) => {
         const id = validateId(req.params);
         const data = await LaporanProgresModel.update(id, validateBody(req.body));
-        return sendSuccess(res, 200, { message: "Laporan progres berhasil diperbarui", data });
+        return sendSuccess(res, "Laporan progres berhasil diperbarui", data, 200);
     }),
 
     remove: asyncHandler(async (req, res) => {
         await LaporanProgresModel.remove(validateId(req.params));
-        return sendSuccess(res, 200, { message: "Laporan progres berhasil dihapus" });
+        return sendSuccess(res, "Laporan progres berhasil dihapus", null, 200);
+    }),
+
+    // Admin: Hanya men-generate teks AI tanpa langsung menyimpan ke DB
+    generateReport: asyncHandler(async (req, res) => {
+        const siswaId = req.params.siswaId || req.params.id;
+        if (!siswaId || !UUID_PATTERN.test(siswaId)) {
+            throw AppError.badRequest("siswaId tidak valid atau harus berformat UUID.");
+        }
+
+        const requestedPeriode = typeof req.body?.periode === "string" && req.body.periode.trim() !== ""
+            ? req.body.periode.trim()
+            : null;
+
+        // Ambil data siswa & nilai
+        const studentData = await LaporanProgresModel.getStudentWithAcademicData(siswaId);
+        if (!studentData) {
+            throw AppError.notFound("Data siswa tidak ditemukan.");
+        }
+        if (!studentData.kelas_id) {
+            throw AppError.unprocessableEntity("Laporan belum dapat digenerate.", [
+                "Siswa belum terdaftar di kelas. Daftarkan siswa ke kelas terlebih dahulu.",
+            ]);
+        }
+
+        const grades = studentData.grades.filter((grade) => (
+            grade.nilai !== null
+            && grade.nilai !== undefined
+            && String(grade.nilai).trim() !== ""
+            && Number.isFinite(Number(grade.nilai))
+        ));
+        if (grades.length === 0) {
+            throw AppError.unprocessableEntity("Laporan belum dapat digenerate.", [
+                "Siswa belum memiliki nilai dari tentor. Masukkan nilai terlebih dahulu.",
+            ]);
+        }
+
+        const currentPeriod = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+        const periode = requestedPeriode || currentPeriod;
+
+        // Panggil Gemini AI
+        const aiResult = await geminiService.generateStudentProgressReport({
+            student: studentData,
+            grades,
+            periode,
+        });
+
+        // Kembalikan teks hasil generate ke frontend tanpa menyimpannya dulu
+        return sendSuccess(res, "Laporan berhasil digenerate oleh AI.", {
+            periode,
+            catatan_wali_kelas: aiResult.catatan_wali_kelas,
+            saran_pengembangan: aiResult.saran_pengembangan,
+            teks_laporan: aiResult.teks_lengkap,
+        }, 200);
     }),
 };
 

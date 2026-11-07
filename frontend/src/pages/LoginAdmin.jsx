@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import AuthLayout from '../components/AuthLayout'
-import { supabase } from '../config/supabaseClient'
+import { supabase } from '../config/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getErrorInfo, loginAdmin } from '../services/authService'
 import { Link } from 'react-router-dom'
