@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../services/api';
-import EKwitansi from '../../components/EKwitansi';
 import { 
-  CheckCircle2, XCircle, Printer, Loader2, 
+  CheckCircle2, XCircle, Loader2, 
   Trash2, Edit, Search, Filter, ChevronDown, ChevronRight, User, X
 } from 'lucide-react';
 
 export default function ManajemenSpp() {
   const [dataSpp, setDataSpp] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   // State Pencarian & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,12 +79,10 @@ export default function ManajemenSpp() {
   };
 
   const handleTandaiLunas = async (spp) => {
-    // Konfirmasi sebelum melunasi
     if(!window.confirm(`Yakin ingin melunasi SPP ${spp.siswa_profile?.nama}?`)) return;
 
     try {
       await api.put(`/tagihan-spp/${spp.id}/bayar`, {
-        // Otomatis menggunakan tanggal hari ini sesuai permintaan
         tanggal_pembayaran: new Date().toISOString().split('T')[0], 
         metode_pembayaran: spp.metode_pembayaran
       });
@@ -103,7 +99,6 @@ export default function ManajemenSpp() {
     }
   };
 
-  // --- FUNGSI EDIT TANGGAL ---
   const handleOpenEdit = (spp) => {
     setEditingSppData(spp);
     setEditDate(spp.tanggal_pembayaran !== '-' ? spp.tanggal_pembayaran : new Date().toISOString().split('T')[0]);
@@ -294,7 +289,6 @@ export default function ManajemenSpp() {
                                           </span>
                                         </td>
                                         
-                                        {/* DATA TANGGAL PEMBAYARAN */}
                                         <td className="p-3 text-sm text-gray-600 font-medium">
                                           {spp.tanggal_pembayaran}
                                         </td>
@@ -311,11 +305,10 @@ export default function ManajemenSpp() {
                                           </select>
                                         </td>
                                         
-                                        {/* KOLOM AKSI DISEMPURNAKAN */}
+                                        {/* KOLOM AKSI (TANPA TOMBOL PRINT) */}
                                         <td className="p-3">
                                           <div className="flex items-center justify-center gap-1.5">
                                             
-                                            {/* JIKA BELUM BAYAR: Hanya Tombol Lunas */}
                                             {spp.status !== 'Lunas' && (
                                               <button 
                                                 onClick={() => handleTandaiLunas(spp)}
@@ -325,20 +318,12 @@ export default function ManajemenSpp() {
                                               </button>
                                             )}
 
-                                            {/* JIKA SUDAH LUNAS: Muncul Print & Edit Tanggal */}
                                             {spp.status === 'Lunas' && (
-                                              <>
-                                                <button onClick={() => setSelectedInvoice(spp)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Print">
-                                                  <Printer className="w-4 h-4" />
-                                                </button>
-                                                
-                                                <button onClick={() => handleOpenEdit(spp)} className="p-1 text-orange-500 hover:bg-orange-50 rounded" title="Edit Tanggal">
-                                                  <Edit className="w-4 h-4" />
-                                                </button>
-                                              </>
+                                              <button onClick={() => handleOpenEdit(spp)} className="p-1 text-orange-500 hover:bg-orange-50 rounded" title="Edit Tanggal">
+                                                <Edit className="w-4 h-4" />
+                                              </button>
                                             )}
                                             
-                                            {/* Tombol Hapus Selalu Ada */}
                                             <button onClick={() => handleHapus(spp.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Hapus">
                                               <Trash2 className="w-4 h-4" />
                                             </button>
@@ -403,18 +388,6 @@ export default function ManajemenSpp() {
         </div>
       )}
 
-      {/* ================= KOMPONEN E-KWITANSI ================= */}
-      <EKwitansi 
-        isOpen={!!selectedInvoice} 
-        onClose={() => setSelectedInvoice(null)} 
-        data={selectedInvoice ? {
-          ...selectedInvoice,
-          nama: selectedInvoice.siswa_profile?.nama || 'Siswa',
-          kelas: selectedInvoice.kelas_name || 'Kelas X',
-          metode_pembayaran: selectedInvoice.metode_pembayaran,
-          tanggal_pembayaran: selectedInvoice.tanggal_pembayaran
-        } : null} 
-      />
     </DashboardLayout>
   );
 }
