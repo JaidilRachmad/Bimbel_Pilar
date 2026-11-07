@@ -7,8 +7,10 @@ import { getAllKelas } from '../../services/kelasService';
 import { getAllUsers } from '../../services/userService';
 import {
   ArrowLeft, Check, CheckCircle2, ChevronRight, Download,
-  AlertCircle, Edit3, LoaderCircle, Save, School, Sparkles, User, Users
+  AlertCircle, Edit3, LoaderCircle, Save, School, Search, Sparkles, User, Users
 } from 'lucide-react';
+
+const LIMIT_SISWA = 10;
 
 const currentPeriod = () => new Date().toLocaleDateString('id-ID', {
   month: 'long',
@@ -36,6 +38,8 @@ export default function NilaiReport() {
   const [studentReportIds, setStudentReportIds] = useState(new Set());
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [selectedSiswa, setSelectedSiswa] = useState(null);
+  const [searchSiswa, setSearchSiswa] = useState('');
+  const [studentPage, setStudentPage] = useState(1);
   const [nilaiList, setNilaiList] = useState([]);
   const [catatan, setCatatan] = useState('');
   const [saran, setSaran] = useState('');
@@ -263,6 +267,14 @@ export default function NilaiReport() {
   };
 
   const siswaKelas = selectedKelas?.kelas_siswa || [];
+  const filteredSiswa = siswaKelas.filter((membership) => (
+    (membership.siswa_profile?.nama || '').toLowerCase().includes(searchSiswa.trim().toLowerCase())
+  ));
+  const totalStudentPages = Math.ceil(filteredSiswa.length / LIMIT_SISWA);
+  const paginatedSiswa = filteredSiswa.slice(
+    (studentPage - 1) * LIMIT_SISWA,
+    studentPage * LIMIT_SISWA,
+  );
   const hasAssignedClass = selectedKelas?.id !== 'unassigned-students';
   const hasReportableGrades = nilaiList.some((grade) => (
     grade.nilai !== null
@@ -270,6 +282,11 @@ export default function NilaiReport() {
     && String(grade.nilai).trim() !== ''
     && Number.isFinite(Number(grade.nilai))
   ));
+
+  const handleSearchSiswa = (value) => {
+    setSearchSiswa(value);
+    setStudentPage(1);
+  };
 
   return (
     <DashboardLayout>
@@ -300,7 +317,11 @@ export default function NilaiReport() {
                 <button
                   key={kelas.id}
                   type="button"
-                  onClick={() => setSelectedKelas(kelas)}
+                  onClick={() => {
+                    setSelectedKelas(kelas);
+                    setSearchSiswa('');
+                    setStudentPage(1);
+                  }}
                   className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                 >
                   <div className="mb-5 flex items-start justify-between">
@@ -336,12 +357,23 @@ export default function NilaiReport() {
             <p className="mt-1 text-gray-500">Pilih siswa untuk melihat nilai dan membuat laporan.</p>
           </div>
 
-          {siswaKelas.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-              Belum ada siswa yang terdaftar di kelas ini.
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex flex-col items-center justify-between gap-4 border-b border-gray-100 p-4 md:flex-row">
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="search"
+                    value={searchSiswa}
+                    onChange={(event) => handleSearchSiswa(event.target.value)}
+                    placeholder={`Cari nama siswa...`}
+                    aria-label={`Cari nama siswa`}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <span className="text-sm text-gray-500">
+                  Maksimal {LIMIT_SISWA} siswa per halaman
+                </span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
@@ -352,7 +384,19 @@ export default function NilaiReport() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {siswaKelas.map((membership) => (
+                    {searchSiswa.trim() && filteredSiswa.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="p-8 text-center text-sm text-gray-500">
+                          Siswa dengan nama tersebut tidak ditemukan di kelas ini.
+                        </td>
+                      </tr>
+                    ) : paginatedSiswa.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="p-8 text-center text-sm text-gray-500">
+                          Belum ada siswa yang terdaftar di kelas ini.
+                        </td>
+                      </tr>
+                    ) : paginatedSiswa.map((membership) => (
                       <tr key={membership.siswa_id} className="group transition hover:bg-gray-50">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
@@ -387,8 +431,37 @@ export default function NilaiReport() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
+              <div className="flex items-center justify-between border-t border-gray-100 p-4 text-sm text-gray-500">
+                <span>
+                  Menampilkan {filteredSiswa.length === 0 ? 0 : (studentPage - 1) * LIMIT_SISWA + 1}
+                  {' - '}
+                  {Math.min(studentPage * LIMIT_SISWA, filteredSiswa.length)}
+                  {' dari '}
+                  {filteredSiswa.length} siswa
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((page) => page - 1)}
+                    disabled={studentPage <= 1}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-3 py-1 font-semibold text-gray-700">
+                    {totalStudentPages ? `${studentPage} / ${totalStudentPages}` : '0'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((page) => page + 1)}
+                    disabled={studentPage >= totalStudentPages}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+          </div>
         </>
       ) : (
         <>
