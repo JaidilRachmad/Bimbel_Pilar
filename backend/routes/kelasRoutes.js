@@ -1,14 +1,12 @@
 "use strict";
+
+require("dotenv").config();
 const express = require("express");
-const config = require("../config/env");
-const KelasController = require("../controllers/kelasController");
-const { authenticateToken } = require("../middlewares/auth");
-const { authorize } = require("../middlewares/permissionMiddlewares");
-
 const router = express.Router();
-
-router.use(authenticateToken, authorize(config.roles.admin));
-
+const KelasController = require("../controllers/kelasController");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const ADMIN_ROLE =  "admin";
+router.use(authenticateToken, authorizeRoles(ADMIN_ROLE));
 /**
  * @swagger
  * tags:
@@ -55,7 +53,6 @@ router.use(authenticateToken, authorize(config.roles.admin));
  */
 router.get("/", KelasController.getAll);
 router.post("/", KelasController.create);
-
 /**
  * @swagger
  * /kelas/{id}:
