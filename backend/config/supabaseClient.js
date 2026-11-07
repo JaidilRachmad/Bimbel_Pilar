@@ -11,6 +11,6 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, supabaseServiceRoleKey ? { serviceRoleKey: supabaseServiceRoleKey } : undefined);
 
 module.exports = supabase;
