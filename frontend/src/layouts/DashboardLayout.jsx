@@ -2,6 +2,12 @@ import { Bell, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/layout/Sidebar';
 
+const roleLabel = {
+  admin: 'Admin',
+  tentor: 'Tentor',
+  siswa: 'Siswa',
+};
+
 export default function DashboardLayout({ children }) {
   const { user } = useAuth();
   const role = user?.role;
