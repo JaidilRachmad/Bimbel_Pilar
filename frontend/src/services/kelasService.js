@@ -1,7 +1,7 @@
 import api from './api'
 
-export async function getAllKelas({ page = 1, limit = 10, jenjang } = {}) {
-  const params = { page, limit }
+export async function getAllKelas({ page = 1, limit = 10, jenjang, sort = 'asc' } = {}) {
+  const params = { page, limit, sort }
   if (jenjang) params.jenjang = jenjang
 
   const { data } = await api.get('/kelas', { params })
@@ -13,13 +13,13 @@ export async function getKelasById(id) {
   return data.data.data
 }
 
-export async function createKelas({ nama_kelas, jenjang }) {
-  const { data } = await api.post('/kelas', { nama_kelas, jenjang })
+export async function createKelas({ nama_kelas, jenjang, harga, paket }) {
+  const { data } = await api.post('/kelas', { nama_kelas, jenjang, harga, paket })
   return data.data.data
 }
 
-export async function updateKelas(id, { nama_kelas, jenjang }) {
-  const { data } = await api.put(`/kelas/${id}`, { nama_kelas, jenjang })
+export async function updateKelas(id, { nama_kelas, jenjang, harga, paket }) {
+  const { data } = await api.put(`/kelas/${id}`, { nama_kelas, jenjang, harga, paket })
   return data.data.data
 }
 
