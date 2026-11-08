@@ -21,6 +21,7 @@ export default function DaftarKelas() {
   const [deletingKelasId, setDeletingKelasId] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
     let active = true;
@@ -30,7 +31,7 @@ export default function DaftarKelas() {
       setError('');
 
       try {
-        const result = await getAllKelas({ page, limit: LIMIT_KELAS });
+        const result = await getAllKelas({ page, limit: LIMIT_KELAS, sort: sortOrder });
         if (!Array.isArray(result?.data) || !result.meta) {
           throw new Error('Format data kelas dari server tidak valid.');
         }
@@ -53,7 +54,12 @@ export default function DaftarKelas() {
     return () => {
       active = false;
     };
-  }, [page, refreshVersion]);
+  }, [page, refreshVersion, sortOrder]);
+
+  const toggleSort = () => {
+    setSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'));
+    setPage(1);
+  };
 
   const getRequestError = (requestError, fallback) =>
     requestError.response?.data?.message || requestError.message || fallback;
@@ -143,8 +149,13 @@ export default function DaftarKelas() {
         {/* Toolbar Tabel */}
         <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 w-full md:w-auto">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-              <Filter className="w-4 h-4" /> Filter & Urutkan
+            <button
+              onClick={toggleSort}
+              disabled={loading}
+              title="Ubah urutan kelas"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              <Filter className="w-4 h-4" /> Urutkan: {sortOrder === 'asc' ? 'Ascending (6 → 9)' : 'Descending (9 → 6)'}
             </button>
           </div>
           
@@ -158,14 +169,29 @@ export default function DaftarKelas() {
                 <th className="p-4 font-semibold border-b border-gray-200">Nama Kelas</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Jenjang</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Jumlah Siswa</th>
-                <th className="p-4 font-semibold border-b border-gray-200">Wali Kelas</th>
+                <th className="p-4 font-semibold border-b border-gray-200">Daftar Tentor</th>
+                <th className="p-4 font-semibold border-b border-gray-200">Harga</th>
+                <th className="p-4 font-semibold border-b border-gray-200 text-center">Paket</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {dummyKelas.map((kelas) => {
-                const isFull = kelas.jumlahSiswa >= kelas.kapasitas;
-                const percentage = (kelas.jumlahSiswa / kelas.kapasitas) * 100;
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-sm text-gray-500">Memuat data kelas...</td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-sm text-red-600">{error}</td>
+                </tr>
+              ) : kelasList.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-sm text-gray-500">Belum ada data kelas.</td>
+                </tr>
+              ) : kelasList.map((kelas) => {
+                const jumlahSiswa = kelas.kelas_siswa?.length ?? 0;
+                const isFull = jumlahSiswa >= KAPASITAS_KELAS;
+                const percentage = Math.min((jumlahSiswa / KAPASITAS_KELAS) * 100, 100);
                 
                 return (
                   <tr key={kelas.id} className="hover:bg-gray-50 transition group">
@@ -189,7 +215,23 @@ export default function DaftarKelas() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-sm text-gray-600">{kelas.waliKelas}</td>
+                    <td className="p-4 text-sm text-gray-600">{getWaliKelas(kelas)}</td>
+                    <td className="p-4 text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                        minimumFractionDigits: 0,
+                      }).format(kelas.harga ?? 0)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
+                        kelas.paket === 'Tahunan'
+                          ? 'bg-amber-50 text-amber-700 border-amber-100'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      }`}>
+                        {kelas.paket ?? '-'}
+                      </span>
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                         <button
