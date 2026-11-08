@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import AdminLayout from '../../layouts/AdminLayout';
-import { getAllUsers } from '../../services/userService';
+import DashboardLayout from '../../layouts/DashboardLayout';
+import {
+  createAccount,
+  deleteUserAccount,
+  getAllUsers,
+  updateAccessToken,
+  updateUserData,
+} from '../../services/userService';
+import { syncTentorKelas } from '../../services/kelasTentorService';
 import { getErrorInfo } from '../../services/authService';
 import {
-  UserPlus, Search, Edit, Trash2, Key, Filter, ChevronDown
+  UserPlus, Search, Edit, Trash2, Key, Filter, ChevronDown, LoaderCircle, RefreshCw
 } from 'lucide-react';
+import AddUserModal from '../../components/admin/AddUserModal';
+import CreatedTokenModal from '../../components/admin/CreatedTokenModal';
 
 // Ambil angka tingkat dari nama kelas, contoh "Kelas 9A - Unggulan" -> "9"
 const getTingkat = (nama) => nama.match(/\d+/)?.[0] ?? '?';
@@ -16,23 +25,127 @@ export default function DaftarPengguna() {
   const [activeTab, setActiveTab] = useState('tentor'); // 'tentor' atau 'siswa'
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedRequest, setLoadedRequest] = useState('');
   const [error, setError] = useState('');
   const [openKelas, setOpenKelas] = useState(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createdToken, setCreatedToken] = useState('');
+  const [tokenModalTitle, setTokenModalTitle] = useState('Akun berhasil dibuat');
+  const [tokenModalDescription, setTokenModalDescription] = useState(
+    'Simpan token akses ini dan berikan kepada pengguna.'
+  );
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [tokenUpdatingUserId, setTokenUpdatingUserId] = useState(null);
+  const [tokenError, setTokenError] = useState('');
+  const requestKey = `${activeTab}:${refreshVersion}`;
+  const loading = loadedRequest !== requestKey;
 
   // Ambil data sesuai tab yang aktif
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     getAllUsers(activeTab)
-      .then((data) => active && setUsers(data.users))
+      .then((data) => {
+        if (active) {
+          setUsers(data.users);
+          setError('');
+        }
+      })
       .catch((err) => active && setError(getErrorInfo(err).message))
-      .finally(() => active && setLoading(false));
+      .finally(() => active && setLoadedRequest(requestKey));
     return () => {
       active = false;
     };
-  }, [activeTab]);
+  }, [activeTab, refreshVersion, requestKey]);
+
+  const handleCreateAccount = async (account) => {
+    setSubmitting(true);
+    setCreateError('');
+
+    try {
+      const { kelasIds = [], ...profileData } = account;
+      const createdAccount = await createAccount(profileData);
+      if (!createdAccount?.token_akses_asli) {
+        throw new Error('Akun berhasil dikirim, tetapi token tidak diterima dari server.');
+      }
+      if (account.role === 'tentor') {
+        await syncTentorKelas(createdAccount.id, kelasIds);
+      }
+
+      setAddModalOpen(false);
+      setTokenModalTitle('Akun berhasil dibuat');
+      setTokenModalDescription('Simpan token akses ini dan berikan kepada pengguna.');
+      setCreatedToken(createdAccount.token_akses_asli);
+      setActiveTab(account.role);
+      setRefreshVersion((version) => version + 1);
+    } catch (requestError) {
+      setCreateError(requestError.response
+        ? getErrorInfo(requestError).message
+        : requestError.message || getErrorInfo(requestError).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateAccount = async (account) => {
+    if (!editingUser) return;
+
+    setSubmitting(true);
+    setCreateError('');
+
+    try {
+      const { kelasIds = [], ...profileData } = account;
+      await updateUserData(editingUser.id, profileData);
+      if (editingUser.role === 'tentor') {
+        await syncTentorKelas(editingUser.id, kelasIds);
+      }
+      setUsers((currentUsers) => currentUsers.map((user) => (
+        user.id === editingUser.id
+          ? { ...user, nama: account.nama, no_telp: account.noTelp, extraField: account.extraField }
+          : user
+      )));
+      setEditingUser(null);
+    } catch (requestError) {
+      setCreateError(getErrorInfo(requestError).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (user) => {
+    setCreateError('');
+    setEditingUser(user);
+  };
+
+  const handleRegenerateToken = async (user) => {
+    if (!window.confirm(`Buat token baru untuk ${user.nama ?? 'pengguna ini'}? Token lama akan langsung tidak berlaku.`)) {
+      return;
+    }
+
+    setTokenUpdatingUserId(user.id);
+    setTokenError('');
+
+    try {
+      const result = await updateAccessToken(user.id);
+      if (!result?.token_akses_baru_asli) {
+        throw new Error('Token baru tidak diterima dari server.');
+      }
+
+      setTokenModalTitle('Token akses berhasil diperbarui');
+      setTokenModalDescription('Simpan token baru ini dan berikan kepada pengguna. Token lama sudah tidak berlaku.');
+      setCreatedToken(result.token_akses_baru_asli);
+    } catch (requestError) {
+      setTokenError(requestError.response
+        ? getErrorInfo(requestError).message
+        : requestError.message || getErrorInfo(requestError).message);
+    } finally {
+      setTokenUpdatingUserId(null);
+    }
+  };
 
   // Filter berdasarkan nama. Field nama belum dikembalikan backend, jadi pakai fallback
   const filteredUsers = users.filter((user) =>
@@ -54,6 +167,23 @@ export default function DaftarPengguna() {
     setActiveTab(tab);
     setSearchQuery('');
     setOpenKelas(null);
+    setRefreshVersion((version) => version + 1);
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Hapus akun ${user.nama ?? 'pengguna ini'}?`)) return;
+
+    setDeletingUserId(user.id);
+    setDeleteError('');
+
+    try {
+      await deleteUserAccount(user.id);
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser.id !== user.id));
+    } catch (requestError) {
+      setDeleteError(getErrorInfo(requestError).message);
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   const renderTable = (list) => (
@@ -85,15 +215,38 @@ export default function DaftarPengguna() {
               <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg w-max">
                 <Key className="w-3.5 h-3.5 text-gray-500" />
                 <span className="text-sm font-mono font-semibold text-gray-700 tracking-wider">••••••••</span>
+                <button
+                  type="button"
+                  onClick={() => handleRegenerateToken(user)}
+                  disabled={tokenUpdatingUserId === user.id}
+                  className="ml-1 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-blue-700 disabled:cursor-wait disabled:opacity-50"
+                  title="Generasi ulang token"
+                  aria-label={`Generasi ulang token ${user.nama ?? 'pengguna'}`}
+                >
+                  {tokenUpdatingUserId === user.id
+                    ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </td>
             <td className="p-4 text-sm text-gray-600 font-medium">{formatTanggal(user.created_at)}</td>
             <td className="p-4">
               <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition" title="Edit">
+                <button
+                  onClick={() => handleOpenEdit(user)}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition"
+                  title="Edit data"
+                  aria-label={`Edit ${user.nama ?? 'pengguna'}`}
+                >
                   <Edit className="w-4 h-4" />
                 </button>
-                <button className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition" title="Hapus">
+                <button
+                  onClick={() => handleDeleteUser(user)}
+                  disabled={deletingUserId === user.id}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition disabled:cursor-wait disabled:opacity-50"
+                  title="Hapus"
+                  aria-label={`Hapus ${user.nama ?? 'pengguna'}`}
+                >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -148,7 +301,7 @@ export default function DaftarPengguna() {
   };
 
   return (
-    <AdminLayout>
+    <DashboardLayout>
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -156,7 +309,7 @@ export default function DaftarPengguna() {
           <p className="text-gray-500 mt-1">Kelola akun akses untuk Tentor dan Siswa Bimbel Pilar.</p>
         </div>
 
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition text-sm font-semibold shadow-sm">
+        <button onClick={() => { setCreateError(''); setAddModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition text-sm font-semibold shadow-sm">
           <UserPlus className="w-4 h-4" /> Tambah Pengguna
         </button>
       </div>
@@ -205,6 +358,9 @@ export default function DaftarPengguna() {
           </button>
         </div>
 
+        {(deleteError || tokenError) && (
+          <p role="alert" className="p-4 text-sm text-red-600">{deleteError || tokenError}</p>
+        )}
         {renderContent()}
 
         {/* Footer */}
@@ -218,6 +374,32 @@ export default function DaftarPengguna() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+      {addModalOpen && (
+        <AddUserModal
+          onClose={() => setAddModalOpen(false)}
+          onSubmit={handleCreateAccount}
+          submitting={submitting}
+          error={createError}
+        />
+      )}
+      {editingUser && (
+        <AddUserModal
+          mode="edit"
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSubmit={handleUpdateAccount}
+          submitting={submitting}
+          error={createError}
+        />
+      )}
+      {createdToken && (
+        <CreatedTokenModal
+          token={createdToken}
+          title={tokenModalTitle}
+          description={tokenModalDescription}
+          onClose={() => setCreatedToken('')}
+        />
+      )}
+    </DashboardLayout>
   );
 }

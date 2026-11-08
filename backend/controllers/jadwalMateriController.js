@@ -99,7 +99,14 @@ function validateListQuery(query) {
 
 const JadwalMateriController = {
     getAll: asyncHandler(async (req, res) => {
-        const { items, meta } = await JadwalMateriModel.getPaginated(validateListQuery(req.query));
+        const query = validateListQuery(req.query);
+        if (query.tentor_id && query.tentor_id !== req.user.id) {
+            throw AppError.forbidden("Anda hanya dapat melihat jadwal yang Anda ampu.");
+        }
+        const { items, meta } = await JadwalMateriModel.getPaginated({
+            ...query,
+            tentor_id: req.user.id,
+        });
         return sendSuccess(res, 200, { data: items, meta });
     }),
 
@@ -113,7 +120,7 @@ const JadwalMateriController = {
     }),
 
     getById: asyncHandler(async (req, res) => {
-        const data = await JadwalMateriModel.getById(validateId(req.params));
+        const data = await JadwalMateriModel.getByIdForTentor(validateId(req.params), req.user.id);
         return sendSuccess(res, 200, { data });
     }),
 
@@ -140,18 +147,26 @@ const JadwalMateriController = {
     }),
 
     create: asyncHandler(async (req, res) => {
-        const data = await JadwalMateriModel.create(validateBody(req.body));
+        const body = validateBody(req.body);
+        if (body.tentor_id !== req.user.id) {
+            throw AppError.forbidden("Anda hanya dapat membuat jadwal untuk diri sendiri.");
+        }
+        const data = await JadwalMateriModel.create(body);
         return sendSuccess(res, 201, { message: "Jadwal dan materi belajar berhasil ditambahkan", data });
     }),
 
     update: asyncHandler(async (req, res) => {
         const id = validateId(req.params);
-        const data = await JadwalMateriModel.update(id, validateBody(req.body));
+        const body = validateBody(req.body);
+        if (body.tentor_id !== req.user.id) {
+            throw AppError.forbidden("Anda hanya dapat memperbarui jadwal milik sendiri.");
+        }
+        const data = await JadwalMateriModel.update(id, body, req.user.id);
         return sendSuccess(res, 200, { message: "Jadwal dan materi belajar berhasil diperbarui", data });
     }),
 
     remove: asyncHandler(async (req, res) => {
-        await JadwalMateriModel.remove(validateId(req.params));
+        await JadwalMateriModel.remove(validateId(req.params), req.user.id);
         return sendSuccess(res, 200, { message: "Jadwal dan materi belajar berhasil dihapus" });
     }),
 };

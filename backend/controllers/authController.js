@@ -148,6 +148,7 @@ async function adminLogin(req, res) {
       user: {
         id: profile.id,
         role: profile.role,
+        nama: profile.nama,
       },
     });
   } catch (error) {
@@ -196,6 +197,7 @@ async function tokenLogin(req, res) {
       user: {
         id: profile.id,
         role: profile.role,
+        nama: profile.nama,
       },
     });
   } catch (error) {
@@ -230,6 +232,7 @@ async function getMe(req, res) {
       user: {
         id: profile.id,
         role: profile.role,
+        nama: profile.nama,
       },
     });
   } catch (error) {

@@ -14,12 +14,20 @@ class AppError extends Error {
     return new AppError(message, 400, errors);
   }
 
+  static unprocessableEntity(message, errors = []) {
+    return new AppError(message, 422, errors);
+  }
+
   static unauthorized(message = "Akses ditolak, autentikasi diperlukan") {
     return new AppError(message, 401);
   }
 
   static forbidden(message = "Akses tidak diizinkan") {
     return new AppError(message, 403);
+  }
+
+  static conflict(message = "Terjadi konflik data") {
+    return new AppError(message, 409);
   }
 
   static notFound(message = "Resource tidak ditemukan") {
