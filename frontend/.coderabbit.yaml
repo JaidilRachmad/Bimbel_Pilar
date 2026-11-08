@@ -1,0 +1,25 @@
+# .coderabbit.yaml
+language: "en-US"
+early_access: false
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  instructions: |
+    You are an expert full-stack code reviewer reviewing a Node.js backend and React frontend application.
+    - Ensure strict adherence to clean architecture, maintaining a clear separation between presentation layer, business logic layer, and data access layer.
+    - Verify that all API calls are centralized and configurable via base paths/environment variables, avoiding hardcoded URLs or raw unconfigured endpoints.
+    - Ensure no leftover `console.log` statements, debugging code, or temporary files are included in the source code prior to review.
+    - Strictly check that no secrets, credentials, or encryption keys are hardcoded; all sensitive parameters must reside in `.env`.
+    - Ensure all frontend UI components are responsive across desktop, tablet, and mobile viewports using Tailwind CSS.
+    - Flag any implicit `any` types in TypeScript/JavaScript and ensure robust input validation is implemented on both frontend and backend.
+    - Commit messages must be written in English following clean standards (e.g., feat(auth): add token login validation).
+    - Verify that all database queries implement efficient pagination or result set limitations when fetching large collections, avoiding unbounded `SELECT *` operations to maintain optimal performance.
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "develop"
+chat:
+  auto_reply: true

@@ -1,4 +1,5 @@
-import AdminLayout from '../../layouts/AdminLayout';
+import { useEffect, useState } from 'react';
+import DashboardLayout from '../../layouts/DashboardLayout';
 import { adminKelasStats } from '../../data/dummy';
 import { createKelas, deleteKelas, getAllKelas, updateKelas } from '../../services/kelasService';
 import AddKelasCard from '../../components/admin/AddKelasCard';
@@ -6,6 +7,16 @@ import {
   Plus, Users, School, BookOpen, AlertTriangle,
   Filter, FileUp, FileDown, Edit, Trash2, Info, LoaderCircle
 } from 'lucide-react';
+
+const KAPASITAS_KELAS = 15;
+const LIMIT_KELAS = 10;
+
+function getWaliKelas(kelas) {
+  return (kelas.kelas_tentor ?? [])
+    .map(({ tentor_profile }) => tentor_profile?.nama)
+    .filter(Boolean)
+    .join(', ') || '-';
+}
 
 export default function DaftarKelas() {
   const [kelasList, setKelasList] = useState([]);
@@ -125,7 +136,7 @@ export default function DaftarKelas() {
   };
 
   return (
-    <AdminLayout>
+    <DashboardLayout>
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -195,7 +206,7 @@ export default function DaftarKelas() {
                 
                 return (
                   <tr key={kelas.id} className="hover:bg-gray-50 transition group">
-                    <td className="p-4 text-sm font-bold text-gray-800">{kelas.nama}</td>
+                    <td className="p-4 text-sm font-bold text-gray-800">{kelas.nama_kelas}</td>
                     <td className="p-4 text-center">
                       <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
                         {kelas.jenjang}
@@ -204,7 +215,7 @@ export default function DaftarKelas() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-gray-700 min-w-[40px]">
-                          {kelas.jumlahSiswa} <span className="text-gray-400 font-normal">/ {kelas.kapasitas}</span>
+                          {jumlahSiswa} <span className="text-gray-400 font-normal">/ {KAPASITAS_KELAS}</span>
                         </span>
                         {/* Progress Bar */}
                         <div className="w-24 bg-gray-200 rounded-full h-1.5">
@@ -264,13 +275,29 @@ export default function DaftarKelas() {
 
         {/* Footer Pagination */}
         <div className="p-4 border-t border-gray-100 flex justify-between items-center text-sm text-gray-500">
-          <span>Menampilkan 1 - 4 dari 12 kelas</span>
+          <span>
+            {meta.total === 0
+              ? 'Menampilkan 0 kelas'
+              : `Menampilkan ${(page - 1) * meta.limit + 1} - ${Math.min(page * meta.limit, meta.total)} dari ${meta.total} kelas`}
+          </span>
           <div className="flex gap-1">
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50" disabled>Prev</button>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded font-semibold">1</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">2</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">3</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Next</button>
+            <button
+              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setPage((currentPage) => currentPage - 1)}
+              disabled={loading || page <= 1}
+            >
+              Prev
+            </button>
+            <span className="px-3 py-1 font-semibold text-gray-700">
+              {meta.total_pages ? `${page} / ${meta.total_pages}` : '0'}
+            </span>
+            <button
+              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50"
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+              disabled={loading || page >= meta.total_pages}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
@@ -303,6 +330,6 @@ export default function DaftarKelas() {
         />
       )}
 
-    </AdminLayout>
+    </DashboardLayout>
   );
 }

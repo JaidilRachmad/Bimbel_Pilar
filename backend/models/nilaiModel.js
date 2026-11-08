@@ -8,6 +8,7 @@ const AppError = require("../utils/AppError");
 
 const TABLE = "penilaian_siswa";
 const COLUMNS = "id, sesi_id, siswa_id, nilai, keterangan, created_at";
+const COLUMNS_WITH_SESSION = `${COLUMNS}, sesi_pembelajaran:sesi_id (mata_pelajaran, materi, tanggal, jam_mulai, jam_selesai)`;
 const NOT_FOUND = "Data penilaian siswa tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze(["sesi_id", "siswa_id", "nilai", "keterangan"]);
@@ -26,12 +27,12 @@ class PenilaianSiswaModel {
 
     static async getPaginated({ page, limit, sesi_id, siswa_id }) {
         const offset = (page - 1) * limit;
-        let query = supabase.from(TABLE).select(COLUMNS, { count: "exact" });
+        let query = supabase.from(TABLE).select(COLUMNS_WITH_SESSION, { count: "exact" });
         
         if (sesi_id) query = query.eq("sesi_id", sesi_id);
         if (siswa_id) query = query.eq("siswa_id", siswa_id);
 
-        const { data, error, count } = await query
+        const { data, error, count, status, statusText } = await query
             .order("created_at", { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -52,7 +53,7 @@ class PenilaianSiswaModel {
     static async getBySiswaId(siswaId) {
         const { data, error } = await supabase
             .from(TABLE)
-            .select(COLUMNS)
+            .select(COLUMNS_WITH_SESSION)
             .eq("siswa_id", siswaId)
             .order("created_at", { ascending: false });
 

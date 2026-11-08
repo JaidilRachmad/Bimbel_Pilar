@@ -1,16 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import DashboardSiswa from './pages/siswa/DashboardSiswa';
-import LaporanProgres from './pages/siswa/LaporanProgres';
-import TagihanSpp from './pages/siswa/TagihanSpp';
-import DashboardAdmin from './pages/admin/DashboardAdmin';
-import DaftarPengguna from './pages/admin/DaftarPengguna';
-import DaftarKelas from './pages/admin/DaftarKelas';
-import ManajemenSpp from './pages/admin/ManajemenSpp';
-import NilaiReport from './pages/admin/NilaiReport';
-import DashboardTentor from './pages/tentor/DashboardTentor';
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import { GuestRoute, ProtectedRoute } from './components/RouteGuards'
 
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const LoginToken = lazy(() => import('./pages/LoginToken'))
+const LoginAdmin = lazy(() => import('./pages/LoginAdmin'))
 
 // siswa
 const DashboardSiswa = lazy(()=> import('./pages/siswa/DashboardSiswa'))
@@ -77,5 +72,5 @@ export default function App() {
         <Route path="/tentor" element={<DashboardTentor />} />
       </Routes>
     </BrowserRouter>
-  );
+  )
 }

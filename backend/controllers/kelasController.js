@@ -1,43 +1,38 @@
 "use strict";
-/**
- * CONTROLLER (MVC) — Kelas
- * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
- * Tidak berisi query database dan tidak berisi aturan bisnis.
- */
-const config = require("../config/env");
 const KelasModel = require("../models/kelasModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
-// ======================= VALIDASI INPUT  =======================
-
+// ======================= KONSTANTA LOKAL (Pengganti Config) =======================
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const NAMA_KELAS_PATTERN = /^[A-Za-z0-9 .()-]+$/; // masking: < > ' " ; ` \ { } ditolak
+const NAMA_KELAS_PATTERN = /^[A-Za-z0-9 .()-]+$/; 
 const NAMA_KELAS_MAX = 50;
+const JENJANG_LIST = Object.freeze(["SD", "SMP"]);
 const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "jenjang"]);
+const PAGINATION = Object.freeze({
+    defaultLimit: 10,
+    maxLimit: 100
+});
 
+// ======================= VALIDASI INPUT =======================
 function assertValid(errors) {
     if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
 }
-
 function normalizeJenjang(value) {
     return typeof value === "string" ? value.trim().toUpperCase() : "";
 }
-
 function parsePositiveInt(value, fallback) {
     if (value === undefined) return fallback;
     if (typeof value !== "string" || !/^\d+$/.test(value)) return NaN;
     return Number.parseInt(value, 10);
 }
-
 function validateId(params) {
     assertValid(UUID_PATTERN.test(params.id || "") ? [] : ["ID kelas tidak valid"]);
     return params.id;
 }
-
 function validateBody(body) {
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-        throw AppError.badRequest("Validasi gagal", ["Body harus berupa objek JSON"]);
+        throw AppError.badRequest("Validasi gagal", ["Body har us berupa objek JSON"]);
     }
 
     const errors = [];
@@ -57,17 +52,16 @@ function validateBody(body) {
     }
 
     const jenjang = normalizeJenjang(body.jenjang);
-    if (!config.jenjangList.includes(jenjang)) {
-        errors.push(`jenjang wajib salah satu dari: ${config.jenjangList.join(", ")}`);
+    if (!JENJANG_LIST.includes(jenjang)) {
+        errors.push(`jenjang wajib salah satu dari: ${JENJANG_LIST.join(", ")}`);
     }
 
     assertValid(errors);
     return { nama_kelas: nama, jenjang };
 }
-
 function validateListQuery(query) {
     const errors = [];
-    const { defaultLimit, maxLimit } = config.pagination;
+    const { defaultLimit, maxLimit } = PAGINATION;
 
     if (Object.keys(query).some((key) => !ALLOWED_QUERY_KEYS.includes(key))) {
         errors.push("Terdapat parameter query yang tidak diizinkan");
@@ -81,15 +75,13 @@ function validateListQuery(query) {
     let jenjang;
     if (query.jenjang !== undefined) {
         jenjang = normalizeJenjang(query.jenjang);
-        if (!config.jenjangList.includes(jenjang)) errors.push("Filter jenjang tidak valid");
+        if (!JENJANG_LIST.includes(jenjang)) errors.push("Filter jenjang tidak valid");
     }
 
     assertValid(errors);
     return { page, limit, jenjang };
 }
-
 // ======================= HANDLER =======================
-
 const KelasController = {
     getAll: asyncHandler(async (req, res) => {
         const { items, meta } = await KelasModel.getPaginated(validateListQuery(req.query));

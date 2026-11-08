@@ -1,17 +1,13 @@
 "use strict";
-/**
- * ROUTES — Tagihan SPP (Admin)
- * Mengatur jalur endpoint API CRUD SPP khusus Admin dengan dokumentasi Swagger.
- */
+
+require("dotenv").config();
 const express = require("express");
-const config = require("../config/env");
-const TagihanSppController = require("../controllers/tagihanSppController");
-const { authenticateToken } = require("../middlewares/auth");
-const { authorize } = require("../middlewares/permissionMiddlewares");
-
 const router = express.Router();
+const TagihanSppController = require("../controllers/sppController");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const ADMIN_ROLE =  "admin";
+const SISWA_ROLE = "siswa";
 
-// Seluruh route di bawah ini wajib login dan hanya dapat diakses oleh Admin
 router.use(authenticateToken);
 
 /**
@@ -26,9 +22,9 @@ router.use(authenticateToken);
  *       401: { description: Belum login }
  */
 // Endpoint khusus Siswa untuk melihat tagihan miliknya sendiri[cite: 46]
-router.get("/me", authorize(config.roles.siswa), TagihanSppController.getMyTagihan);
+router.get("/me", authorizeRoles(SISWA_ROLE), TagihanSppController.getMyTagihan);
 
-router.use(authorize(config.roles.admin));
+router.use(authorizeRoles(ADMIN_ROLE));
 /**
  * @swagger
  * tags:
