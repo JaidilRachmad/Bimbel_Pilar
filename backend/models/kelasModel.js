@@ -4,9 +4,9 @@ const AppError = require("../utils/AppError");
 
 const TABLE = "kelas";
 const TABLE_KELAS_SISWA = "kelas_siswa";
-const COLUMNS = "id, nama_kelas, jenjang, created_at"; 
+const COLUMNS = "id, nama_kelas, jenjang, harga, paket, created_at"; 
 const NOT_FOUND = "Kelas tidak ditemukan";
-const WRITABLE_FIELDS = Object.freeze(["nama_kelas", "jenjang"]);
+const WRITABLE_FIELDS = Object.freeze(["nama_kelas", "jenjang", "harga", "paket"]); // field yang boleh diubah melalui API
 
 function pickWritable(input = {}) {
     const out = {};
@@ -17,13 +17,30 @@ function pickWritable(input = {}) {
     return out;
 }
 
+// Kunci urut: angka tingkat (6-9), lalu tipe kelas (Intensif < Reguler, sesuai abjad), lalu nama lengkap
+function sortKey(namaKelas = "") {
+    const nama = String(namaKelas).trim().toLowerCase();
+    const match = nama.match(/\d+/);
+    const angka = match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+    const tipe = nama.replace(/^\D*\d+\s*[a-z]?(?=\s|$)/, "").trim();
+    return { angka, tipe, nama };
+}
+function compareKelas(a, b) {
+    const ka = sortKey(a.nama_kelas);
+    const kb = sortKey(b.nama_kelas);
+    return (ka.angka - kb.angka)
+        || ka.tipe.localeCompare(kb.tipe, "id")
+        || ka.nama.localeCompare(kb.nama, "id", { numeric: true })
+        || String(a.id).localeCompare(String(b.id));
+}
+
 class KelasModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
-    
+
     // ======================= 1. ATURAN BISNIS =======================
-    static async getPaginated({ page, limit, jenjang }) {
+    static async getPaginated({ page, limit, jenjang, sort = "asc" }) {
         const offset = (page - 1) * limit;
-        const { rows, total } = await KelasModel.#selectPage({ offset, limit, jenjang });
+        const { rows, total } = await KelasModel.#selectPage({ offset, limit, jenjang, sort });
         return {
             items: rows,
             meta: { page, limit, total, total_pages: Math.ceil(total / limit) }, //pagination limit
@@ -52,7 +69,7 @@ class KelasModel {
     }
 
     // ======================= 2. AKSES DATABASE =======================
-    static async #selectPage({ offset, limit, jenjang }) {
+    static async #selectPage({ offset, limit, jenjang, sort }) {
         let query = supabase
             .from(TABLE)
             .select(`
@@ -71,14 +88,14 @@ class KelasModel {
 
         if (jenjang) query = query.eq("jenjang", jenjang);
 
-        const { data, error, count } = await query
-            .order("jenjang", { ascending: true })
-            .order("nama_kelas", { ascending: true })
-            .order("id", { ascending: true }) 
-            .range(offset, offset + limit - 1);
-
+        // Urutan custom (natural + Intensif/Reguler) tidak bisa lewat ORDER BY SQL,
+        // jadi ambil semua baris lalu urutkan & paginasi di memori (tabel kecil).
+        const { data, error } = await query;
         if (error) throw error;
-        return { rows: data, total: count ?? 0 };
+
+        const sorted = [...data].sort(compareKelas);
+        if (sort === "desc") sorted.reverse();
+        return { rows: sorted.slice(offset, offset + limit), total: sorted.length };
     }
     static async #selectById(id) {
         const { data, error } = await supabase
