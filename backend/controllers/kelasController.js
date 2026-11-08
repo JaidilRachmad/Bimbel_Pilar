@@ -41,7 +41,7 @@ function validateId(params) {
 }
 function validateBody(body) {
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-        throw AppError.badRequest("Validasi gagal", ["Body harus berupa objek JSON"]);
+        throw AppError.badRequest("Validasi gagal", ["Body har us berupa objek JSON"]);
     }
 
     const errors = [];

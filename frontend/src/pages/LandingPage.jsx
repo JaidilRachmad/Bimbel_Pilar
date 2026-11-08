@@ -4,6 +4,7 @@ import {
   Sparkles, ArrowRight, GraduationCap, LogIn, Menu, X
 } from 'lucide-react';
 import { useState } from 'react';
+import logo from '../assets/logo.png'
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -67,7 +68,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <img
-              src="/logo-pilar-cendekia.png"
+              src={logo}
               alt="Pilar Cendekia"
               className="h-12 w-auto"
             />
@@ -121,7 +122,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto text-center relative">
           {/* Logo besar di hero */}
           <img
-            src="/logo-pilar-cendekia.png"
+            src={logo}
             alt="Pilar Cendekia"
             className="h-32 md:h-40 w-auto mx-auto mb-8 drop-shadow-lg"
           />
@@ -223,7 +224,7 @@ export default function LandingPage() {
 
           <div className="relative">
             <img
-              src="/logo-pilar-cendekia.png"
+              src={logo}
               alt="Pilar Cendekia"
               className="h-20 w-auto mx-auto mb-6 bg-white rounded-2xl p-2"
             />
@@ -244,7 +245,7 @@ export default function LandingPage() {
       {/* ================= FOOTER ================= */}
       <footer className="border-t border-slate-200 py-10 px-6 text-center text-sm text-slate-500">
         <img
-          src="/logo-pilar-cendekia.png"
+          src={logo}
           alt="Pilar Cendekia"
           className="h-12 w-auto mx-auto mb-3"
         />

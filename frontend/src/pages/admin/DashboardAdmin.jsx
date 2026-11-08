@@ -1,10 +1,10 @@
-import AdminLayout from '../../layouts/AdminLayout';
+import DashboardLayout from '../../layouts/DashboardLayout';
 import { adminStats, daftarPengajar } from '../../data/dummy';
 import { Users, GraduationCap, School, Wallet, Filter, ArrowUpRight } from 'lucide-react';
 
 export default function DashboardAdmin() {
   return (
-    <AdminLayout>
+    <DashboardLayout>
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
@@ -130,6 +130,6 @@ export default function DashboardAdmin() {
         </div>
       </div>
 
-    </AdminLayout>
+    </DashboardLayout>
   );
 }

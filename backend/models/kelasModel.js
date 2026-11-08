@@ -36,7 +36,7 @@ function compareKelas(a, b) {
 
 class KelasModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
-
+    
     // ======================= 1. ATURAN BISNIS =======================
     static async getPaginated({ page, limit, jenjang, sort = "asc" }) {
         const offset = (page - 1) * limit;
