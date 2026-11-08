@@ -48,3 +48,8 @@ export async function deleteUserAccount(id) {
   const { data } = await api.delete(`/user/${id}`)
   return data.data // { id }
 }
+
+export async function updateUserKelas(id, kelasId) {
+  const { data } = await api.put(`/user/${id}/kelas`, { kelasId })
+  return data.data
+}
