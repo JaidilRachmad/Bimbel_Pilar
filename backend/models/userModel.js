@@ -212,6 +212,82 @@ class UserModel {
     return { id: userId, message: "Profil berhasil diperbarui" };
   }
 
+  async updateUserKelas(userId, kelasId) {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    throw AppError.internal(`Gagal mengambil profil pengguna: ${profileError.message}`);
+  }
+  if (!profile) {
+    throw AppError.notFound("Pengguna tidak ditemukan.");
+  }
+  if (profile.role !== "siswa") {
+    throw AppError.badRequest("Hanya siswa yang dapat dipindahkan ke kelas.");
+  }
+
+  const { data: kelas, error: kelasError } = await supabase
+    .from("kelas")
+    .select("id")
+    .eq("id", kelasId)
+    .maybeSingle();
+
+  if (kelasError) {
+    throw AppError.internal(`Gagal memeriksa kelas: ${kelasError.message}`);
+  }
+  if (!kelas) {
+    throw AppError.notFound("Kelas yang dipilih tidak ditemukan.");
+  }
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("kelas_siswa")
+    .select("id")
+    .eq("siswa_id", userId)
+    .order("id", { ascending: true });
+
+  if (membershipError) {
+    throw AppError.internal(`Gagal memeriksa kelas siswa: ${membershipError.message}`);
+  }
+
+  if (!memberships || memberships.length === 0) {
+    // Siswa belum punya kelas: buat relasi baru
+    const { error: insertError } = await supabase
+      .from("kelas_siswa")
+      .insert([{ siswa_id: userId, kelas_id: kelasId }]);
+
+    if (insertError) {
+      throw AppError.internal(`Gagal menambahkan kelas siswa: ${insertError.message}`);
+    }
+  } else {
+    // Siswa pindah kelas: update relasi pertama, hapus sisa duplikat (jika ada)
+    const [primary, ...extras] = memberships;
+    const { error: updateError } = await supabase
+      .from("kelas_siswa")
+      .update({ kelas_id: kelasId })
+      .eq("id", primary.id);
+
+    if (updateError) {
+      throw AppError.internal(`Gagal memperbarui kelas siswa: ${updateError.message}`);
+    }
+
+    if (extras.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("kelas_siswa")
+        .delete()
+        .in("id", extras.map((row) => row.id));
+
+      if (deleteError) {
+        throw AppError.internal(`Gagal merapikan relasi kelas siswa: ${deleteError.message}`);
+      }
+    }
+  }
+
+  return { id: userId, kelasId, message: "Kelas siswa berhasil diperbarui" };
+}
+
   async findAllUsers(roleFilter) {
     const profiles = [];
     let offset = 0;

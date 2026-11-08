@@ -150,6 +150,23 @@ const updateUserData = asyncHandler(async (req, res) => {
   return sendSuccess(res, "Data profil pengguna berhasil diperbarui!", updatedProfile, 200);
 });
 
+const updateUserKelas = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { kelasId } = req.body ?? {};
+
+  const errors = [];
+  if (!UUID_PATTERN.test(id || "")) {
+    errors.push("ID pengguna tidak valid.");
+  }
+  if (!UUID_PATTERN.test(kelasId || "")) {
+    errors.push("kelasId wajib diisi dengan ID kelas yang valid.");
+  }
+  assertValid(errors);
+  const result = await userModel.updateUserKelas(id, kelasId);
+
+  return sendSuccess(res, "Kelas siswa berhasil diperbarui!", result, 200);
+});
+
 const getAllUsers = asyncHandler(async (req, res) => {
   const { role } = req.query; 
 
@@ -176,6 +193,7 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
 module.exports = {
   updateAccessToken,
   updateUserData,
+  updateUserKelas,
   getAllUsers,
   createAccount,
   deleteUserAccount
