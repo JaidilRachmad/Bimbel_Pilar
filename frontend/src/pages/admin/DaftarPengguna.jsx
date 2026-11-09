@@ -6,6 +6,7 @@ import {
   getAllUsers,
   updateAccessToken,
   updateUserData,
+  updateUserKelas,  
 } from '../../services/userService';
 import { syncTentorKelas } from '../../services/kelasTentorService';
 import { getErrorInfo } from '../../services/authService';
@@ -98,17 +99,31 @@ export default function DaftarPengguna() {
     setCreateError('');
 
     try {
-      const { kelasIds = [], ...profileData } = account;
-      await updateUserData(editingUser.id, profileData);
+      const { kelasIds = [], kelasId, _profileChanged, _kelasChanged,...profileData } = account;
+
+     
       if (editingUser.role === 'tentor') {
+         await updateUserData(editingUser.id, profileData);
         await syncTentorKelas(editingUser.id, kelasIds);
       }
+      if (editingUser.role === 'siswa') {
+      if (_kelasChanged) {
+        await updateUserKelas(editingUser.id, kelasId);
+      }
+      if (_profileChanged) {
+        await updateUserData(editingUser.id, {
+          nama: profileData.nama,
+          noTelp: profileData.noTelp,
+          extraField: profileData.extraField,
+        });
+      }}
       setUsers((currentUsers) => currentUsers.map((user) => (
         user.id === editingUser.id
           ? { ...user, nama: account.nama, no_telp: account.noTelp, extraField: account.extraField }
           : user
       )));
       setEditingUser(null);
+      setRefreshVersion((version) => version + 1); 
     } catch (requestError) {
       setCreateError(getErrorInfo(requestError).message);
     } finally {

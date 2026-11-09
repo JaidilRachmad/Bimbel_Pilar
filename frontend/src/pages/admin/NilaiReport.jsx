@@ -11,6 +11,8 @@ import {
   AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Sparkles, User, Users
 } from 'lucide-react';
 
+const LIMIT_SISWA = 10;
+
 const currentPeriod = () => new Date().toLocaleDateString('id-ID', {
   month: 'long',
   year: 'numeric',
@@ -93,6 +95,8 @@ export default function NilaiReport() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthList, setMonthList] = useState([]);
   const [selectedSiswa, setSelectedSiswa] = useState(null);
+  const [searchSiswa, setSearchSiswa] = useState('');
+  const [studentPage, setStudentPage] = useState(1);
   const [nilaiList, setNilaiList] = useState([]);
   const [catatan, setCatatan] = useState('');
   const [saran, setSaran] = useState('');
@@ -373,6 +377,14 @@ export default function NilaiReport() {
   };
 
   const siswaKelas = selectedKelas?.kelas_siswa || [];
+  const filteredSiswa = siswaKelas.filter((membership) => (
+    (membership.siswa_profile?.nama || '').toLowerCase().includes(searchSiswa.trim().toLowerCase())
+  ));
+  const totalStudentPages = Math.ceil(filteredSiswa.length / LIMIT_SISWA);
+  const paginatedSiswa = filteredSiswa.slice(
+    (studentPage - 1) * LIMIT_SISWA,
+    studentPage * LIMIT_SISWA,
+  );
   const hasAssignedClass = selectedKelas?.id !== 'unassigned-students';
   const selectedPeriodReportIds = selectedMonth
     ? periodReportIds.get(selectedMonth.label) || new Set()
@@ -383,6 +395,11 @@ export default function NilaiReport() {
     && String(grade.nilai).trim() !== ''
     && Number.isFinite(Number(grade.nilai))
   ));
+
+  const handleSearchSiswa = (value) => {
+    setSearchSiswa(value);
+    setStudentPage(1);
+  };
 
   return (
     <DashboardLayout>
@@ -494,7 +511,19 @@ export default function NilaiReport() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {siswaKelas.map((membership) => (
+                    {searchSiswa.trim() && filteredSiswa.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="p-8 text-center text-sm text-gray-500">
+                          Siswa dengan nama tersebut tidak ditemukan di kelas ini.
+                        </td>
+                      </tr>
+                    ) : paginatedSiswa.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="p-8 text-center text-sm text-gray-500">
+                          Belum ada siswa yang terdaftar di kelas ini.
+                        </td>
+                      </tr>
+                    ) : paginatedSiswa.map((membership) => (
                       <tr key={membership.siswa_id} className="group transition hover:bg-gray-50">
                         <td className="p-4">
                           <div className="flex items-center gap-3">

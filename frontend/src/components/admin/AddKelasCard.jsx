@@ -11,14 +11,32 @@ export default function AddKelasCard({
 }) {
   const [namaKelas, setNamaKelas] = useState(initialData?.nama_kelas ?? '')
   const [jenjang, setJenjang] = useState(initialData?.jenjang ?? '')
+  const [harga, setHarga] = useState(
+  initialData?.harga != null ? String(initialData.harga) : ''
+)
+const [paket, setPaket] = useState(initialData?.paket ?? '')
   const hasChanges = mode === 'edit' && (
     namaKelas.trim() !== (initialData?.nama_kelas ?? '').trim()
     || jenjang !== (initialData?.jenjang ?? '')
+    || Number(harga || 0) !== Number(initialData?.harga ?? 0)
+    || paket !== (initialData?.paket ?? '')
   )
+const formatRupiah = (value) => {
+  const digits = String(value).replace(/\D/g, '')
+  return digits ? Number(digits).toLocaleString('id-ID') : ''
+}
+const handleHargaChange = (event) => {
+  const digits = event.target.value.replace(/\D/g, '')
+  // batasi panjang agar tidak overflow (maks 9 digit = 999.999.999)
+  setHarga(digits.slice(0, 9))
+}
+  const hargaNumber = Number(harga || 0)
+  const hargaValid = Number.isInteger(hargaNumber) && hargaNumber >= 1000
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    onSubmit({ nama_kelas: namaKelas.trim(), jenjang })
+    if (!hargaValid || !paket) return
+    onSubmit({ nama_kelas: namaKelas.trim(), jenjang, harga: hargaNumber, paket })
   }
 
   return (
@@ -78,6 +96,41 @@ export default function AddKelasCard({
             </select>
           </label>
 
+          <label className="block text-sm font-medium text-gray-700">
+            Harga
+            <div className="relative mt-1.5">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-500">
+                Rp
+              </span>
+              <input
+                inputMode="numeric"
+                value={formatRupiah(harga)}
+                onChange={handleHargaChange}
+                required
+                placeholder="300.000"
+                aria-invalid={harga !== '' && !hargaValid}
+                className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+            <span className={`mt-1 block text-xs font-normal ${harga !== '' && !hargaValid ? 'text-red-600' : 'text-gray-500'}`}>
+              Minimal Rp1.000. Contoh: 300.000
+            </span>
+          </label>
+
+          <label className="block text-sm font-medium text-gray-700">
+            Paket
+            <select
+              value={paket}
+              onChange={(event) => setPaket(event.target.value)}
+              required
+              className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            >
+              <option value="">Pilih paket</option>
+              <option value="Bulanan">Bulanan</option>
+              <option value="Tahunan">Tahunan</option>
+            </select>
+          </label>
+
           {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
@@ -91,7 +144,7 @@ export default function AddKelasCard({
             </button>
             <button
               type="submit"
-              disabled={submitting || (mode === 'edit' && !hasChanges)}
+              disabled={submitting || !hargaValid || !paket || !jenjang || (mode === 'edit' && !hasChanges)}
               className="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800 disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? 'Menyimpan...' : mode === 'edit' ? 'Simpan perubahan' : 'Simpan kelas'}

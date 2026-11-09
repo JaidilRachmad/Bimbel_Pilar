@@ -11,7 +11,7 @@ const roleLabel = {
 export default function DashboardLayout({ children }) {
   const { user } = useAuth();
   const role = user?.role;
-  const name = user?.nama_lengkap ?? user?.nama ?? roleLabel[role] ?? 'Pengguna';
+  const name = user?.nama ?? (role === 'admin' ? 'Admin' : roleLabel[role] ?? 'Pengguna');
   const detail = role === 'siswa' ? user?.kelas ?? 'Siswa' : roleLabel[role] ?? 'Pengguna';
   const avatarClass = role === 'tentor'
     ? 'bg-orange-100 text-orange-600'
