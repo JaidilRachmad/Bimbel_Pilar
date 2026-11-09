@@ -45,7 +45,7 @@ router.get("/:id/download", authorizeRoles("tentor", "siswa"), JadwalMateriContr
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/", authorizeRoles("tentor"), JadwalMateriController.getAll);
+router.get("/", authorizeRoles("tentor", "admin"), JadwalMateriController.getAll);
 router.post("/", authorizeRoles("tentor"), JadwalMateriController.create);
 
 router.get("/:id", authorizeRoles("tentor"), JadwalMateriController.getById);
