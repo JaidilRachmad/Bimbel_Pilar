@@ -48,7 +48,8 @@ export default function ManajemenSpp() {
           ...item,
           metode_pembayaran: metodeTersimpan,
           tanggal_pembayaran: tanggalTersimpan,
-          kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || (index % 2 === 0 ? 'Kelas 6 SD' : 'Kelas 7 SMP')
+          // MENGHAPUS DATA DUMMY KELAS (Menggunakan data asli dari database)
+          kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || '-'
         };
       });
 
@@ -305,7 +306,7 @@ export default function ManajemenSpp() {
                                           </select>
                                         </td>
                                         
-                                        {/* KOLOM AKSI (TANPA TOMBOL PRINT) */}
+                                        {/* KOLOM AKSI */}
                                         <td className="p-3">
                                           <div className="flex items-center justify-center gap-1.5">
                                             

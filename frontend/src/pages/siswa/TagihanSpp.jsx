@@ -1,177 +1,225 @@
+import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { ringkasanSpp, tagihanAktif, riwayatSpp } from '../../data/dummy';
+import api from '../../services/api';
+import EKwitansi from '../../components/EKwitansi';
 import { 
-  Printer, CreditCard, Building2, AlertCircle, 
-  CheckCircle2, Download, ChevronRight 
+  CheckCircle2, XCircle, 
+  FileText, Loader2, AlertCircle
 } from 'lucide-react';
 
 export default function TagihanSpp() {
+  const [tagihanSiswa, setTagihanSiswa] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  const fetchMySpp = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/tagihan-spp/me');
+      const rawData = response.data;
+      const fetchedItems = rawData?.data?.data || rawData?.data || rawData || [];
+      
+      const mappedData = fetchedItems.map((item) => {
+        let metodeTersimpan = 'Transfer';
+        let tanggalTersimpan = '-';
+
+        if (item.invoice_pembayaran) {
+          const invoice = Array.isArray(item.invoice_pembayaran) 
+            ? item.invoice_pembayaran[0] 
+            : item.invoice_pembayaran;
+
+          if (invoice) {
+            metodeTersimpan = invoice.metode_pembayaran || 'Transfer';
+            tanggalTersimpan = invoice.tanggal_pembayaran || '-';
+          }
+        }
+
+        return {
+          ...item,
+          metode_pembayaran: metodeTersimpan,
+          tanggal_pembayaran: tanggalTersimpan,
+          kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || '-'
+        };
+      });
+
+      // Urutkan berdasarkan tahun dan bulan terbaru
+      mappedData.sort((a, b) => {
+        if (a.tahun_mulai !== b.tahun_mulai) return b.tahun_mulai - a.tahun_mulai;
+        return b.bulan_mulai.localeCompare(a.bulan_mulai);
+      });
+
+      setTagihanSiswa(mappedData);
+    } catch (error) {
+      console.error("Gagal mengambil data SPP:", error);
+      // Fallback dummy data untuk testing UI
+      setTagihanSiswa([
+        { id: 1, bulan_mulai: "November", tahun_mulai: 2026, nominal: 350000, status: "Belum Bayar", tanggal_jatuh_tempo: "2026-11-10", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
+        { id: 2, bulan_mulai: "Oktober", tahun_mulai: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Cash", tanggal_pembayaran: "2026-10-05", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
+        { id: 3, bulan_mulai: "September", tahun_mulai: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Transfer", tanggal_pembayaran: "2026-09-08", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMySpp();
+  }, []);
+
+  // Memisahkan data untuk 2 tabel
+  const tagihanBelumBayar = tagihanSiswa.filter(spp => spp.status === 'Belum Bayar');
+  const riwayatPembayaran = tagihanSiswa.filter(spp => spp.status === 'Lunas');
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       {/* Header Halaman */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tagihan & Riwayat SPP</h1>
-          <p className="text-gray-500 mt-1">Kelola pembayaran bulanan dan pantau riwayat administrasi belajar Anda.</p>
-        </div>
-        
-        {/* Tombol Aksi */}
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-500 rounded-xl hover:bg-gray-50 transition text-sm font-semibold shadow-sm opacity-70 cursor-not-allowed" disabled>
-            <Printer className="w-4 h-4" /> Cetak Kuitansi
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition text-sm font-semibold shadow-sm">
-            <CreditCard className="w-4 h-4" /> Bayar Admin
-          </button>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Tagihan & Riwayat SPP</h1>
+        <p className="text-gray-500 mt-1">Pantau status pembayaran dan unduh kuitansi digital Anda.</p>
       </div>
 
-      {/* Grid Layout: Kiri (Ringkasan) & Kanan (Tagihan Aktif) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="space-y-6">
         
-        {/* Kolom Kiri: Ringkasan & Info Bank */}
-        <div className="space-y-6">
-          {/* Card Ringkasan */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-gray-800">Ringkasan</h3>
-              <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded">
-                {ringkasanSpp.statusAkun}
-              </span>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">Total Dibayar</p>
-                <p className="text-lg font-bold text-green-600">{ringkasanSpp.totalDibayar}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">Tunggakan</p>
-                <p className="text-lg font-bold text-red-600">{ringkasanSpp.tunggakan}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Informasi Pembayaran */}
-          <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-gray-500" /> Informasi Pembayaran
+        {/* --- TABEL 1: TUNGGAKAN (BELUM BAYAR) --- */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-red-50">
+            <h3 className="font-bold text-red-700 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" /> Tagihan Belum Dibayar
             </h3>
-            <p className="text-xs text-gray-500 mb-3">Lakukan transfer ke rekening resmi berikut:</p>
-            
-            <div className="bg-white p-4 rounded-xl border border-gray-200 mb-4 flex items-center gap-4">
-              <div className="w-12 h-8 bg-blue-800 rounded text-white flex items-center justify-center font-bold text-xs">BNI</div>
-              <div>
-                <p className="text-sm font-bold text-gray-800">123456789</p>
-                <p className="text-xs text-gray-500">a.n. Bimbel Pilar Cendekia</p>
-              </div>
-            </div>
-            
-            <p className="text-[11px] text-gray-500 leading-relaxed italic">
-              *Konfirmasi otomatis dalam 10-15 menit setelah transfer (pada jam kerja).
-            </p>
           </div>
-        </div>
-
-        {/* Kolom Kanan: Tagihan Aktif */}
-        <div className="md:col-span-2">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col">
-            {/* Header Tagihan */}
-            <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-              <div>
-                <span className="bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full mb-3 inline-block">
-                  BELUM BAYAR
-                </span>
-                <h2 className="text-xl font-bold text-gray-900">SPP {tagihanAktif.bulan}</h2>
-                <p className="text-sm text-gray-500 mt-1">Jatuh tempo: {tagihanAktif.jatuhTempo}</p>
-              </div>
-              <AlertCircle className="w-8 h-8 text-red-500" />
-            </div>
-
-            {/* Nominal */}
-            <div className="p-6 flex-1">
-              <p className="text-sm font-medium text-gray-500 mb-1">Nominal Tagihan</p>
-              <p className="text-4xl font-bold text-gray-900">
-                Rp {tagihanAktif.nominal.toLocaleString('id-ID')}
-              </p>
-              
-              {/* Warning Box */}
-              <div className="mt-6 bg-orange-50 border border-orange-100 p-4 rounded-xl flex gap-3">
-                <AlertCircle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-orange-800 leading-relaxed">
-                  Segera lunasi pembayaran sebelum tanggal <strong>10</strong> agar akses portal belajar tetap aktif tanpa kendala.
-                </p>
-              </div>
-            </div>
-
-            {/* Footer Tombol */}
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
-              <button className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition font-semibold text-sm">
-                Invoice
-              </button>
-              <button className="px-6 py-2.5 bg-[#1E3A8A] text-white rounded-xl hover:bg-blue-900 transition font-semibold text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4" /> Bayar Sekarang
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Tabel Riwayat Pembayaran */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="font-bold text-gray-800">Riwayat Pembayaran</h3>
-          <select className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600 bg-gray-50">
-            <option>Tahun 2026</option>
-            <option>Tahun 2025</option>
-          </select>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="p-4 font-semibold border-b border-gray-200">Bulan Tagihan</th>
-                <th className="p-4 font-semibold border-b border-gray-200">Nominal</th>
-                <th className="p-4 font-semibold border-b border-gray-200">Tanggal Bayar</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Status</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {riwayatSpp.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition">
-                  <td className="p-4 text-sm font-bold text-gray-800">{item.bulan}</td>
-                  <td className="p-4 text-sm text-gray-600">{item.nominal}</td>
-                  <td className="p-4 text-sm text-gray-600">{item.tanggalBayar}</td>
-                  <td className="p-4 text-center">
-                    <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                      <CheckCircle2 className="w-3 h-3" /> {item.status}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center">
-                    <button className="text-blue-600 hover:text-blue-800 font-semibold text-sm flex items-center justify-center gap-1 mx-auto">
-                      <Download className="w-4 h-4" /> Kuitansi
-                    </button>
-                  </td>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="p-4 font-semibold">Bulan Tagihan</th>
+                  <th className="p-4 font-semibold">Nominal</th>
+                  <th className="p-4 font-semibold">Jatuh Tempo</th>
+                  <th className="p-4 font-semibold text-center">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {tagihanBelumBayar.length > 0 ? (
+                  tagihanBelumBayar.map((item) => (
+                    <tr key={item.id} className="hover:bg-red-50/30 transition">
+                      <td className="p-4 text-sm font-bold text-gray-800">
+                        {item.bulan_mulai} {item.tahun_mulai}
+                      </td>
+                      <td className="p-4 text-sm font-bold text-red-600">
+                        Rp {(item.nominal || 0).toLocaleString('id-ID')}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {item.tanggal_jatuh_tempo || '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold">
+                          <XCircle className="w-3.5 h-3.5" /> Belum Bayar
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="p-8 text-center text-gray-500">
+                      <div className="flex flex-col items-center justify-center">
+                        <CheckCircle2 className="w-10 h-10 text-green-500 mb-2" />
+                        <p className="font-semibold text-gray-700">Semua tagihan sudah lunas!</p>
+                        <p className="text-xs">Terima kasih telah melakukan pembayaran tepat waktu.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        
-        <div className="p-4 border-t border-gray-100 text-center">
-          <button className="text-sm font-semibold text-gray-500 hover:text-blue-600 flex items-center justify-center gap-1 mx-auto transition">
-            Lihat Semua Riwayat <ChevronRight className="w-4 h-4" />
-          </button>
+
+        {/* --- TABEL 2: RIWAYAT PEMBAYARAN (LUNAS) --- */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" /> Riwayat Pembayaran
+            </h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                  <th className="p-4 font-semibold">Bulan Tagihan</th>
+                  <th className="p-4 font-semibold">Nominal</th>
+                  <th className="p-4 font-semibold">Tgl Bayar</th>
+                  <th className="p-4 font-semibold">Metode</th>
+                  <th className="p-4 font-semibold text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {riwayatPembayaran.length > 0 ? (
+                  riwayatPembayaran.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition">
+                      <td className="p-4 text-sm font-bold text-gray-800">
+                        {item.bulan_mulai} {item.tahun_mulai}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        Rp {(item.nominal || 0).toLocaleString('id-ID')}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {item.tanggal_pembayaran}
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        {item.metode_pembayaran}
+                      </td>
+                      <td className="p-4 text-center">
+                        <button 
+                          onClick={() => setSelectedInvoice(item)}
+                          className="text-[#1E3A8A] bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-1 mx-auto transition"
+                        >
+                          <FileText className="w-4 h-4" /> E-Kwitansi
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="p-8 text-center text-gray-500">
+                      Belum ada riwayat pembayaran.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
       </div>
 
-      {/* Footer Note */}
       <div className="text-center mt-8 text-xs text-gray-400">
-        &copy; 2026 Bimbel Pilar Cendekia. Seluruh hak cipta dilindungi.
+        &copy; {new Date().getFullYear()} Bimbel Pilar Cendekia. Seluruh hak cipta dilindungi.
       </div>
 
+      {/* ================= KOMPONEN E-KWITANSI ================= */}
+      <EKwitansi 
+        isOpen={!!selectedInvoice} 
+        onClose={() => setSelectedInvoice(null)} 
+        data={selectedInvoice ? {
+          ...selectedInvoice,
+          nama: selectedInvoice.siswa_profile?.nama || 'Siswa',
+          nama_wali: selectedInvoice.siswa_profile?.nama_wali || 'Bapak/Ibu Wali',
+          kelas: selectedInvoice.kelas_name || 'Kelas X',
+          metode_pembayaran: selectedInvoice.metode_pembayaran,
+          tanggal_pembayaran: selectedInvoice.tanggal_pembayaran
+        } : null} 
+      />
     </DashboardLayout>
   );
 }

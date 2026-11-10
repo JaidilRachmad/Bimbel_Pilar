@@ -9,3 +9,31 @@
     overflow-x: hidden;
   }
 }
+
+/* --- CSS KHUSUS UNTUK PRINT KWITANSI --- */
+@media print {
+  /* 1. Sembunyikan semua elemen di halaman */
+  body * {
+    visibility: hidden;
+    /* Memaksa browser mencetak warna background */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* 2. Tampilkan HANYA komponen dengan class .print-section */
+  .print-section, .print-section * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* 3. Posisikan kwitansi agar pas di kiri atas kertas */
+  .print-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
