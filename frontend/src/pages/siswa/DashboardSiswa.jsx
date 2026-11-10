@@ -1,6 +1,7 @@
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { userSiswa, mataPelajaran } from '../../data/dummy';
 import { PlayCircle, ChevronRight, BookOpen } from 'lucide-react';
+import SppWarning from '../../components/SppWarning'; // Import ini
 
 export default function DashboardSiswa() {
   return (
@@ -72,6 +73,7 @@ export default function DashboardSiswa() {
           </div>
         ))}
       </div>
+      <SppWarning /> 
     </DashboardLayout>
   );
 }
