@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../../layouts/DashboardLayout'
 import { useAuth } from '../../context/AuthContext'
 import { getJadwalSiswa, getLinkUnduhMateri } from '../../services/materiSiswaService'
+import SppWarning from '../../components/SppWarning';
 import {
   BookOpen,
   CalendarCheck2,
