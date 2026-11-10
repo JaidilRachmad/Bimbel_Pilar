@@ -4,7 +4,7 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 const TABLE = "tagihan_spp";
-const COLUMNS = "id, siswa_id, nominal, status, tanggal_jatuh_tempo, bulan_mulai, tahun_mulai, bulan_selesai, tahun_selesai, created_at, updated_at, siswa_profile(nama), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
+const COLUMNS = "id, siswa_id, nominal, status, tanggal_jatuh_tempo, bulan_mulai, tahun_mulai, bulan_selesai, tahun_selesai, created_at, updated_at, siswa_profile(nama, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
 const NOT_FOUND = "Tagihan SPP tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
