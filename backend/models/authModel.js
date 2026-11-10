@@ -5,7 +5,12 @@ const tokenService = require("../models/tokenService");
 async function findProfileById(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select(`
+      id,
+      role,
+      siswa_profile ( nama ),
+      tentor_profile ( nama )
+    `)
     .eq("id", userId)
     .maybeSingle();
 
@@ -13,7 +18,13 @@ async function findProfileById(userId) {
     throw new Error("Gagal mengambil profil pengguna.");
   }
 
-  return data;
+  if (!data) return data;
+
+  return {
+    id: data.id,
+    role: data.role,
+    nama: data.siswa_profile?.nama ?? data.tentor_profile?.nama ?? null,
+  };
 }
 
 async function findProfileByAccessToken(token) {
@@ -21,7 +32,12 @@ async function findProfileByAccessToken(token) {
   
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select(`
+      id,
+      role,
+      siswa_profile ( nama ),
+      tentor_profile ( nama )
+    `)
     .eq("token_akses", tokenHash)
     .in("role", ["siswa", "tentor"])
     .maybeSingle();
@@ -34,7 +50,13 @@ async function findProfileByAccessToken(token) {
     throw new Error("Gagal memverifikasi token akses.");
   }
 
-  return data;
+  if (!data) return data;
+
+  return {
+    id: data.id,
+    role: data.role,
+    nama: data.siswa_profile?.nama ?? data.tentor_profile?.nama ?? null,
+  };
 }
 
 module.exports = {

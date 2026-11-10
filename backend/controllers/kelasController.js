@@ -8,11 +8,13 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const NAMA_KELAS_PATTERN = /^[A-Za-z0-9 .()-]+$/; 
 const NAMA_KELAS_MAX = 50;
 const JENJANG_LIST = Object.freeze(["SD", "SMP"]);
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "jenjang"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "jenjang", "sort"]);
 const PAGINATION = Object.freeze({
     defaultLimit: 10,
     maxLimit: 100
 });
+const PAKET_LIST = Object.freeze(["Bulanan", "Tahunan"]);
+const HARGA_MIN = 1000;
 
 // ======================= VALIDASI INPUT =======================
 function assertValid(errors) {
@@ -20,6 +22,13 @@ function assertValid(errors) {
 }
 function normalizeJenjang(value) {
     return typeof value === "string" ? value.trim().toUpperCase() : "";
+}
+function normalizePaket(value) {
+    if (typeof value !== "string") return "";
+    const v = value.trim().toLowerCase();
+    if (v === "bulanan") return "Bulanan";
+    if (v === "tahunan") return "Tahunan";
+    return "";
 }
 function parsePositiveInt(value, fallback) {
     if (value === undefined) return fallback;
@@ -40,6 +49,27 @@ function validateBody(body) {
         errors.push("Terdapat field yang tidak diizinkan"); // cegah mass assignment
     }
 
+    // --- harga ---
+    let harga;
+    if (body.harga === undefined || body.harga === null || body.harga === "") {
+        errors.push("harga wajib diisi");
+    } else {
+        const n = typeof body.harga === "number" ? body.harga : Number(body.harga);
+        if (!Number.isFinite(n) || !Number.isInteger(n)) {
+            errors.push("harga harus berupa bilangan bulat");
+        } else if (n < HARGA_MIN) {
+            errors.push(`harga minimal Rp${HARGA_MIN.toLocaleString("id-ID")}`);
+        } else {
+            harga = n;
+        }
+    }
+
+    // --- paket ---
+    const paket = normalizePaket(body.paket);
+    if (!PAKET_LIST.includes(paket)) {
+        errors.push(`paket wajib salah satu dari: ${PAKET_LIST.join(", ")}`);
+    }
+
     let nama = "";
     if (typeof body.nama_kelas !== "string" || body.nama_kelas.trim() === "") {
         errors.push("nama_kelas wajib diisi");
@@ -57,7 +87,7 @@ function validateBody(body) {
     }
 
     assertValid(errors);
-    return { nama_kelas: nama, jenjang };
+    return { nama_kelas: nama, jenjang, harga, paket };
 }
 function validateListQuery(query) {
     const errors = [];
@@ -78,8 +108,11 @@ function validateListQuery(query) {
         if (!JENJANG_LIST.includes(jenjang)) errors.push("Filter jenjang tidak valid");
     }
 
+    const sort = query.sort === undefined ? "asc" : String(query.sort).toLowerCase();
+    if (!["asc", "desc"].includes(sort)) errors.push("sort harus asc atau desc");
+
     assertValid(errors);
-    return { page, limit, jenjang };
+    return { page, limit, jenjang, sort };
 }
 // ======================= HANDLER =======================
 const KelasController = {

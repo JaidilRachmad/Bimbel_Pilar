@@ -7,7 +7,7 @@
  */
 const express = require("express");
 const JadwalMateriController = require("../controllers/jadwalMateriController");
-const { authenticateToken, authorizeRole} = require("../middleware/authMiddleware");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.use(authenticateToken);
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/me", authorizeRole("siswa"), JadwalMateriController.getMyJadwalSiswa);
+router.get("/me", authorizeRoles("siswa"), JadwalMateriController.getMyJadwalSiswa);
 
 /**
  * @swagger
@@ -31,7 +31,7 @@ router.get("/me", authorizeRole("siswa"), JadwalMateriController.getMyJadwalSisw
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/download", authorizeRole("tentor", "siswa"), JadwalMateriController.downloadMateri);
+router.get("/:id/download", authorizeRoles("tentor", "siswa"), JadwalMateriController.downloadMateri);
 
 /**
  * @swagger
@@ -45,11 +45,11 @@ router.get("/:id/download", authorizeRole("tentor", "siswa"), JadwalMateriContro
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/", authorizeRole("tentor"), JadwalMateriController.getAll);
-router.post("/", authorizeRole("tentor"), JadwalMateriController.create);
+router.get("/", authorizeRoles("tentor", "admin"), JadwalMateriController.getAll);
+router.post("/", authorizeRoles("tentor"), JadwalMateriController.create);
 
-router.get("/:id", authorizeRole("tentor"), JadwalMateriController.getById);
-router.put("/:id", authorizeRole("tentor"), JadwalMateriController.update);
-router.delete("/:id", authorizeRole("tentor"), JadwalMateriController.remove);
+router.get("/:id", authorizeRoles("tentor"), JadwalMateriController.getById);
+router.put("/:id", authorizeRoles("tentor"), JadwalMateriController.update);
+router.delete("/:id", authorizeRoles("tentor"), JadwalMateriController.remove);
 
 module.exports = router;

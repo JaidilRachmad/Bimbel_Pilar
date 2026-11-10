@@ -34,6 +34,7 @@ export default function AddSiswaCard({
     form.nama.trim() !== (initialData?.nama ?? '').trim()
     || form.noTelp.trim() !== (initialData?.no_telp ?? '').trim()
     || form.extraField.trim() !== (initialData?.extraField ?? '').trim()
+    || form.kelasId !== (initialData?.kelas?.id ?? '') 
   )
 
   const updateField = (event) => {
@@ -42,20 +43,31 @@ export default function AddSiswaCard({
   }
 
   const handleSubmit = (event) => {
-    event.preventDefault()
-    onSubmit({
-      role: 'siswa',
-      nama: form.nama.trim(),
-      noTelp: form.noTelp.trim(),
-      extraField: form.extraField.trim(),
-      kelasId: form.kelasId,
-      bulanMulai: form.bulanMulai,
-      tahunMulai: Number(form.tahunMulai),
-      bulanSelesai: form.bulanSelesai,
-      tahunSelesai: Number(form.tahunSelesai),
-      nominal: Number(form.nominal),
-    })
-  }
+  event.preventDefault()
+
+  const profileChanged = mode === 'create' || (
+    form.nama.trim() !== (initialData?.nama ?? '').trim()
+    || form.noTelp.trim() !== (initialData?.no_telp ?? '').trim()
+    || form.extraField.trim() !== (initialData?.extraField ?? '').trim()
+  )
+  const kelasChanged = mode === 'create'
+    || form.kelasId !== (initialData?.kelas?.id ?? '')
+
+  onSubmit({
+    role: 'siswa',
+    nama: form.nama.trim(),
+    noTelp: form.noTelp.trim(),
+    extraField: form.extraField.trim(),
+    kelasId: form.kelasId,
+    bulanMulai: form.bulanMulai,
+    tahunMulai: Number(form.tahunMulai),
+    bulanSelesai: form.bulanSelesai,
+    tahunSelesai: Number(form.tahunSelesai),
+    nominal: Number(form.nominal),
+    _profileChanged: profileChanged,
+    _kelasChanged: kelasChanged,
+  })
+}
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm">
@@ -87,22 +99,24 @@ export default function AddSiswaCard({
           Nama orang tua / wali
           <input name="extraField" value={form.extraField} onChange={updateField} required maxLength={100} autoComplete="name" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100" />
         </label>
-        {mode === 'create' ? <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700">
           Kelas
-          <select name="kelasId" value={form.kelasId} onChange={updateField} required disabled={kelasLoading || kelasList.length === 0} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100">
+          <select
+            name="kelasId"
+            value={form.kelasId}
+            onChange={updateField}
+            required
+            disabled={kelasLoading || kelasList.length === 0}
+            className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+          >
             <option value="">{kelasLoading ? 'Memuat kelas...' : 'Pilih kelas'}</option>
             {kelasList.map((kelas) => (
-              <option key={kelas.id} value={kelas.id}>{kelas.nama_kelas} ({kelas.jenjang})</option>
+              <option key={kelas.id} value={kelas.id}>
+                {kelas.nama_kelas} ({kelas.jenjang})
+              </option>
             ))}
           </select>
-        </label> : (
-          <div className="text-sm font-medium text-gray-700">
-            Kelas
-            <p className="mt-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-600">
-              {initialData?.kelas?.nama ?? 'Belum ada kelas'}
-            </p>
-          </div>
-        )}
+        </label>
         {mode === 'create' && <fieldset className="grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2">
           <legend className="px-1 text-sm font-semibold text-gray-700">Periode tagihan SPP</legend>
           <label className="block text-sm font-medium text-gray-700">
