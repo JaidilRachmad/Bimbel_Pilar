@@ -13,11 +13,8 @@ export async function createAccount({
   noTelp,
   extraField,
   kelasId,
-  bulanMulai,
-  tahunMulai,
-  bulanSelesai,
-  tahunSelesai,
-  nominal,
+  tanggalMulaiBelajar,
+  paket,
 }) {
   const { data } = await api.post('/user', {
     role,
@@ -25,11 +22,8 @@ export async function createAccount({
     noTelp,
     extraField,
     kelasId,
-    bulanMulai,
-    tahunMulai,
-    bulanSelesai,
-    tahunSelesai,
-    nominal,
+    tanggalMulaiBelajar,
+    paket,
   })
   return data.data // { id, role, nama, token_akses_asli }
 }
@@ -47,9 +41,4 @@ export async function updateAccessToken(id) {
 export async function deleteUserAccount(id) {
   const { data } = await api.delete(`/user/${id}`)
   return data.data // { id }
-}
-
-export async function updateUserKelas(id, kelasId) {
-  const { data } = await api.put(`/user/${id}/kelas`, { kelasId })
-  return data.data
 }
