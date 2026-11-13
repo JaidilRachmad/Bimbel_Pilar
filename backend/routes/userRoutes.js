@@ -12,6 +12,4 @@ router.put("/:id", authenticateToken, authorizeRoles("admin"), userController.up
 router.put("/:id/token", authenticateToken, authorizeRoles("admin"), userController.updateAccessToken);
 router.delete("/:id", authenticateToken, authorizeRoles("admin"), userController.deleteUserAccount);
 
-router.put("/:id/kelas", authenticateToken, authorizeRoles("admin"), userController.updateUserKelas);
-
 module.exports = router;
