@@ -7,6 +7,13 @@ import {
   FileText, Loader2, AlertCircle
 } from 'lucide-react';
 
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+const formatBulan = (bulan, tahun) => `${MONTHS[Number(bulan) - 1] || '-'} ${tahun || ''}`;
+
 export default function TagihanSpp() {
   const [tagihanSiswa, setTagihanSiswa] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +51,8 @@ export default function TagihanSpp() {
 
       // Urutkan berdasarkan tahun dan bulan terbaru
       mappedData.sort((a, b) => {
-        if (a.tahun_mulai !== b.tahun_mulai) return b.tahun_mulai - a.tahun_mulai;
-        return b.bulan_mulai.localeCompare(a.bulan_mulai);
+        if (a.tahun !== b.tahun) return b.tahun - a.tahun;
+        return b.bulan - a.bulan;
       });
 
       setTagihanSiswa(mappedData);
@@ -53,9 +60,9 @@ export default function TagihanSpp() {
       console.error("Gagal mengambil data SPP:", error);
       // Fallback dummy data untuk testing UI
       setTagihanSiswa([
-        { id: 1, bulan_mulai: "November", tahun_mulai: 2026, nominal: 350000, status: "Belum Bayar", tanggal_jatuh_tempo: "2026-11-10", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
-        { id: 2, bulan_mulai: "Oktober", tahun_mulai: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Cash", tanggal_pembayaran: "2026-10-05", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
-        { id: 3, bulan_mulai: "September", tahun_mulai: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Transfer", tanggal_pembayaran: "2026-09-08", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } }
+        { id: 1, bulan: 11, tahun: 2026, nominal: 350000, status: "Belum Bayar", tanggal_jatuh_tempo: "2026-11-10", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
+        { id: 2, bulan: 10, tahun: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Cash", tanggal_pembayaran: "2026-10-05", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } },
+        { id: 3, bulan: 9, tahun: 2026, nominal: 350000, status: "Lunas", metode_pembayaran: "Transfer", tanggal_pembayaran: "2026-09-08", kelas_name: "9 Intensif", siswa_profile: { nama: "Siswa Test" } }
       ]);
     } finally {
       setIsLoading(false);
@@ -113,7 +120,7 @@ export default function TagihanSpp() {
                   tagihanBelumBayar.map((item) => (
                     <tr key={item.id} className="hover:bg-red-50/30 transition">
                       <td className="p-4 text-sm font-bold text-gray-800">
-                        {item.bulan_mulai} {item.tahun_mulai}
+                        {formatBulan(item.bulan, item.tahun)}
                       </td>
                       <td className="p-4 text-sm font-bold text-red-600">
                         Rp {(item.nominal || 0).toLocaleString('id-ID')}
@@ -168,7 +175,7 @@ export default function TagihanSpp() {
                   riwayatPembayaran.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition">
                       <td className="p-4 text-sm font-bold text-gray-800">
-                        {item.bulan_mulai} {item.tahun_mulai}
+                        {formatBulan(item.bulan, item.tahun)}
                       </td>
                       <td className="p-4 text-sm text-gray-600">
                         Rp {(item.nominal || 0).toLocaleString('id-ID')}

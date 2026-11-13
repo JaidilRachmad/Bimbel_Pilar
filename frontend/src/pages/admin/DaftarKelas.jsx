@@ -182,7 +182,7 @@ export default function DaftarKelas() {
                 <th className="p-4 font-semibold border-b border-gray-200">Jumlah Siswa</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Daftar Tentor</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Harga</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Paket</th>
+                <th className="p-4 font-semibold border-b border-gray-200 text-center">Periode</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Aksi</th>
               </tr>
             </thead>
@@ -234,14 +234,8 @@ export default function DaftarKelas() {
                         minimumFractionDigits: 0,
                       }).format(kelas.harga ?? 0)}
                     </td>
-                    <td className="p-4 text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
-                        kelas.paket === 'Tahunan'
-                          ? 'bg-amber-50 text-amber-700 border-amber-100'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                      }`}>
-                        {kelas.paket ?? '-'}
-                      </span>
+                    <td className="p-4 text-center text-sm text-gray-600">
+                      {kelas.periode_mulai || '-'} s/d {kelas.periode_selesai || '-'}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
