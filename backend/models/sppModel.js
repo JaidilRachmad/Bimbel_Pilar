@@ -4,7 +4,7 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 const TABLE = "tagihan_spp";
-const COLUMNS = "id, siswa_id, nominal, status, tanggal_jatuh_tempo, bulan_mulai, tahun_mulai, bulan_selesai, tahun_selesai, created_at, updated_at, siswa_profile(nama, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
+const COLUMNS = "id, siswa_id, nominal, status, bulan, tahun, tanggal_jatuh_tempo, created_at, updated_at, siswa_profile(nama, nama_wali, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
 const NOT_FOUND = "Tagihan SPP tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
@@ -12,10 +12,8 @@ const WRITABLE_FIELDS = Object.freeze([
     "nominal",
     "status",
     "tanggal_jatuh_tempo",
-    "bulan_mulai",
-    "tahun_mulai",
-    "bulan_selesai",
-    "tahun_selesai",
+    "bulan",
+    "tahun",
 ]);
 
 function pickWritable(input = {}) {
@@ -36,10 +34,9 @@ class TagihanSppModel {
         
         if (status) query = query.eq("status", status);
 
-        // PERBAIKAN: Gunakan tahun_mulai dan bulan_mulai untuk sorting
         const { data, error, count } = await query
-            .order("tahun_mulai", { ascending: false })
-            .order("bulan_mulai", { ascending: false })
+            .order("tahun", { ascending: false })
+            .order("bulan", { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
@@ -62,8 +59,8 @@ class TagihanSppModel {
             .from(TABLE)
             .select(COLUMNS)
             .eq("siswa_id", siswaId)
-            .order("tahun_mulai", { ascending: false })
-            .order("bulan_mulai", { ascending: false });
+            .order("tahun", { ascending: false })
+            .order("bulan", { ascending: false });
 
         if (error) throw error;
         return data;

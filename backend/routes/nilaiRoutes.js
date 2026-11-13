@@ -8,6 +8,7 @@ const express = require("express");
 const router = express.Router();
 const NilaiController = require("../controllers/nilaiController");
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const checkSpp = require("../middleware/checkSpp");
 
 const ADMIN_ROLE =  "admin";
 const SISWA_ROLE = "siswa";
@@ -27,7 +28,7 @@ router.use(authenticateToken);
  *       401: { description: Belum login }
  */
 // Endpoint khusus Siswa (hanya melihat nilai miliknya sendiri)
-router.get("/me", authorizeRoles(SISWA_ROLE), NilaiController.getMyNilai);
+router.get("/me", authorizeRoles(SISWA_ROLE), checkSpp, NilaiController.getMyNilai);
 
 /**
  * @swagger
