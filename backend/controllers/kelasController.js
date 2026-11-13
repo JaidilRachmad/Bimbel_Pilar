@@ -13,8 +13,14 @@ const PAGINATION = Object.freeze({
     defaultLimit: 10,
     maxLimit: 100
 });
-const PAKET_LIST = Object.freeze(["Bulanan", "Tahunan"]);
 const HARGA_MIN = 1000;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDate(value) {
+    if (!DATE_PATTERN.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 // ======================= VALIDASI INPUT =======================
 function assertValid(errors) {
@@ -22,13 +28,6 @@ function assertValid(errors) {
 }
 function normalizeJenjang(value) {
     return typeof value === "string" ? value.trim().toUpperCase() : "";
-}
-function normalizePaket(value) {
-    if (typeof value !== "string") return "";
-    const v = value.trim().toLowerCase();
-    if (v === "bulanan") return "Bulanan";
-    if (v === "tahunan") return "Tahunan";
-    return "";
 }
 function parsePositiveInt(value, fallback) {
     if (value === undefined) return fallback;
@@ -64,12 +63,6 @@ function validateBody(body) {
         }
     }
 
-    // --- paket ---
-    const paket = normalizePaket(body.paket);
-    if (!PAKET_LIST.includes(paket)) {
-        errors.push(`paket wajib salah satu dari: ${PAKET_LIST.join(", ")}`);
-    }
-
     let nama = "";
     if (typeof body.nama_kelas !== "string" || body.nama_kelas.trim() === "") {
         errors.push("nama_kelas wajib diisi");
@@ -86,8 +79,22 @@ function validateBody(body) {
         errors.push(`jenjang wajib salah satu dari: ${JENJANG_LIST.join(", ")}`);
     }
 
+    const periodeMulai = typeof body.periode_mulai === "string" ? body.periode_mulai.trim() : "";
+    const periodeSelesai = typeof body.periode_selesai === "string" ? body.periode_selesai.trim() : "";
+    if (!isValidDate(periodeMulai)) errors.push("periode_mulai wajib berupa tanggal valid berformat YYYY-MM-DD.");
+    if (!isValidDate(periodeSelesai)) errors.push("periode_selesai wajib berupa tanggal valid berformat YYYY-MM-DD.");
+    if (isValidDate(periodeMulai) && isValidDate(periodeSelesai) && periodeMulai > periodeSelesai) {
+        errors.push("periode_selesai tidak boleh sebelum periode_mulai.");
+    }
+
     assertValid(errors);
-    return { nama_kelas: nama, jenjang, harga, paket };
+    return {
+        nama_kelas: nama,
+        jenjang,
+        harga,
+        periode_mulai: periodeMulai,
+        periode_selesai: periodeSelesai,
+    };
 }
 function validateListQuery(query) {
     const errors = [];
