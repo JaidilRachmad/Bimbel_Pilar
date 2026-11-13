@@ -14,12 +14,14 @@ export default function AddKelasCard({
   const [harga, setHarga] = useState(
   initialData?.harga != null ? String(initialData.harga) : ''
 )
-const [paket, setPaket] = useState(initialData?.paket ?? '')
+  const [periodeMulai, setPeriodeMulai] = useState(initialData?.periode_mulai ?? '')
+  const [periodeSelesai, setPeriodeSelesai] = useState(initialData?.periode_selesai ?? '')
   const hasChanges = mode === 'edit' && (
     namaKelas.trim() !== (initialData?.nama_kelas ?? '').trim()
     || jenjang !== (initialData?.jenjang ?? '')
     || Number(harga || 0) !== Number(initialData?.harga ?? 0)
-    || paket !== (initialData?.paket ?? '')
+    || periodeMulai !== (initialData?.periode_mulai ?? '')
+    || periodeSelesai !== (initialData?.periode_selesai ?? '')
   )
 const formatRupiah = (value) => {
   const digits = String(value).replace(/\D/g, '')
@@ -35,8 +37,14 @@ const handleHargaChange = (event) => {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!hargaValid || !paket) return
-    onSubmit({ nama_kelas: namaKelas.trim(), jenjang, harga: hargaNumber, paket })
+    if (!hargaValid || !periodeMulai || !periodeSelesai || periodeMulai > periodeSelesai) return
+    onSubmit({
+      nama_kelas: namaKelas.trim(),
+      jenjang,
+      harga: hargaNumber,
+      periode_mulai: periodeMulai,
+      periode_selesai: periodeSelesai,
+    })
   }
 
   return (
@@ -117,19 +125,16 @@ const handleHargaChange = (event) => {
             </span>
           </label>
 
-          <label className="block text-sm font-medium text-gray-700">
-            Paket
-            <select
-              value={paket}
-              onChange={(event) => setPaket(event.target.value)}
-              required
-              className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            >
-              <option value="">Pilih paket</option>
-              <option value="Bulanan">Bulanan</option>
-              <option value="Tahunan">Tahunan</option>
-            </select>
-          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Periode mulai
+              <input type="date" value={periodeMulai} onChange={(event) => setPeriodeMulai(event.target.value)} required className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Periode selesai
+              <input type="date" value={periodeSelesai} min={periodeMulai || undefined} onChange={(event) => setPeriodeSelesai(event.target.value)} required className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+            </label>
+          </div>
 
           {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -144,7 +149,7 @@ const handleHargaChange = (event) => {
             </button>
             <button
               type="submit"
-              disabled={submitting || !hargaValid || !paket || !jenjang || (mode === 'edit' && !hasChanges)}
+              disabled={submitting || !hargaValid || !periodeMulai || !periodeSelesai || periodeMulai > periodeSelesai || !jenjang || (mode === 'edit' && !hasChanges)}
               className="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800 disabled:cursor-wait disabled:opacity-60"
             >
               {submitting ? 'Menyimpan...' : mode === 'edit' ? 'Simpan perubahan' : 'Simpan kelas'}

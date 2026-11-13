@@ -1,12 +1,18 @@
 import { Printer, ArrowLeft } from 'lucide-react';
 import logoPilar from '../assets/logo.png';
 
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
 export default function EKwitansi({ isOpen, onClose, data }) {
   if (!isOpen || !data) return null;
 
   const formatRupiah = (angka) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   };
+  const periode = `${MONTHS[Number(data.bulan) - 1] || '-'} ${data.tahun || ''}`;
 
   return (
     <div className="print-section fixed inset-0 bg-[#F8FAFC] z-50 overflow-y-auto print:bg-white print:static">
@@ -73,7 +79,7 @@ export default function EKwitansi({ isOpen, onClose, data }) {
               </div>
               <div className="flex">
                 <span className="w-28 text-gray-500">Periode</span>
-                <span className="font-semibold text-gray-900">: {data.bulan_mulai} {data.tahun_mulai} - Pendaftaran {data.tahun_mulai ? (data.tahun_mulai + 1).toString().slice(-2) : ''}/{data.tahun_mulai ? (data.tahun_mulai + 2).toString().slice(-2) : ''}</span>
+                <span className="font-semibold text-gray-900">: {periode}</span>
               </div>
             </div>
 
@@ -88,12 +94,12 @@ export default function EKwitansi({ isOpen, onClose, data }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="px-4 py-3 text-gray-700">SPP {data.bulan_mulai} {data.tahun_mulai}</td>
+                    <td className="px-4 py-3 text-gray-700">SPP {periode}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{formatRupiah(data.nominal || data.total_pembayaran)}</td>
                   </tr>
                   {data.pendaftaran && (
                     <tr>
-                      <td className="px-4 py-3 text-gray-700">Pendaftaran T/A {data.tahun_mulai}/{data.tahun_mulai + 1} (Naik Kelas)</td>
+                      <td className="px-4 py-3 text-gray-700">Pembayaran SPP {data.tahun}</td>
                       <td className="px-4 py-3 text-right text-gray-700">{formatRupiah(data.pendaftaran)}</td>
                     </tr>
                   )}

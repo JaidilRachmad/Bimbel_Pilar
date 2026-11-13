@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
 export default function SppBlocker({ children }) {
   const navigate = useNavigate();
   const [isLocked, setIsLocked] = useState(false);
@@ -20,9 +25,12 @@ export default function SppBlocker({ children }) {
         
         // LOGIKA ASLI (Ubah ke true jika ingin tes paksa)
         // const isPastDueDate = true; 
-        const isPastDueDate = today.getDate() > 10; 
+        const isPastDueDate = today.getDate() >= 10;
         
-        const nunggak = fetchedItems.find(spp => spp.status === 'Belum Bayar');
+        const nunggak = fetchedItems.find((spp) => (
+          spp.status === 'Belum Bayar'
+          && (!spp.tanggal_jatuh_tempo || spp.tanggal_jatuh_tempo <= today.toISOString().slice(0, 10))
+        ));
 
         if (isPastDueDate && nunggak) {
           setIsLocked(true);
@@ -78,7 +86,7 @@ export default function SppBlocker({ children }) {
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-gray-500">Tagihan:</span>
-                    <span className="font-bold text-gray-800">SPP {tagihan.bulan_mulai} {tagihan.tahun_mulai}</span>
+                    <span className="font-bold text-gray-800">SPP {MONTHS[Number(tagihan.bulan) - 1] || '-'} {tagihan.tahun}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Nominal:</span>

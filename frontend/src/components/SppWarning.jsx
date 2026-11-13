@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AlertCircle } from 'lucide-react'; 
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
 export default function SppWarning() {
   const navigate = useNavigate();
   const [showWarning, setShowWarning] = useState(false);
@@ -21,13 +25,16 @@ export default function SppWarning() {
         
         console.log("📦 Data tagihan dari API:", fetchedItems); 
 
-        const isPastDueDate = today.getDate() > 10; 
-        // const isPastDueDate = true; // Paksa true untuk tes
-        const nunggak = fetchedItems.find(spp => spp.status === 'Belum Bayar');
+        const today = new Date();
+        const isBeforeDueDate = today.getDate() < 10;
+        const nunggak = fetchedItems.find((spp) => (
+          spp.status === 'Belum Bayar'
+          && (!spp.tanggal_jatuh_tempo || spp.tanggal_jatuh_tempo > today.toISOString().slice(0, 10))
+        ));
         
         console.log("🔍 Hasil pencarian tagihan nunggak:", nunggak); 
 
-        if (isPastDueDate && nunggak) {
+        if (isBeforeDueDate && nunggak) {
           setTagihanNunggak(nunggak);
           setShowWarning(true);
         }
@@ -62,7 +69,7 @@ export default function SppWarning() {
           <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-500">Tagihan:</span>
-              <span className="font-bold text-gray-800">SPP {tagihanNunggak.bulan_mulai} {tagihanNunggak.tahun_mulai}</span>
+              <span className="font-bold text-gray-800">SPP {MONTHS[Number(tagihanNunggak.bulan) - 1] || '-'} {tagihanNunggak.tahun}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Nominal:</span>
