@@ -4,9 +4,9 @@ const AppError = require("../utils/AppError");
 
 const TABLE = "kelas";
 const TABLE_KELAS_SISWA = "kelas_siswa";
-const COLUMNS = "id, nama_kelas, jenjang, harga, paket, created_at"; 
+const COLUMNS = "id, nama_kelas, jenjang, harga, periode_mulai, periode_selesai, created_at";
 const NOT_FOUND = "Kelas tidak ditemukan";
-const WRITABLE_FIELDS = Object.freeze(["nama_kelas", "jenjang", "harga", "paket"]); // field yang boleh diubah melalui API
+const WRITABLE_FIELDS = Object.freeze(["nama_kelas", "jenjang", "harga", "periode_mulai", "periode_selesai"]);
 
 function pickWritable(input = {}) {
     const out = {};
