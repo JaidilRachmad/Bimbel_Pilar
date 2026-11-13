@@ -13,13 +13,13 @@ export async function getKelasById(id) {
   return data.data.data
 }
 
-export async function createKelas({ nama_kelas, jenjang, harga, paket }) {
-  const { data } = await api.post('/kelas', { nama_kelas, jenjang, harga, paket })
+export async function createKelas({ nama_kelas, jenjang, harga, periode_mulai, periode_selesai }) {
+  const { data } = await api.post('/kelas', { nama_kelas, jenjang, harga, periode_mulai, periode_selesai })
   return data.data.data
 }
 
-export async function updateKelas(id, { nama_kelas, jenjang, harga, paket }) {
-  const { data } = await api.put(`/kelas/${id}`, { nama_kelas, jenjang, harga, paket })
+export async function updateKelas(id, { nama_kelas, jenjang, harga, periode_mulai, periode_selesai }) {
+  const { data } = await api.put(`/kelas/${id}`, { nama_kelas, jenjang, harga, periode_mulai, periode_selesai })
   return data.data.data
 }
 
