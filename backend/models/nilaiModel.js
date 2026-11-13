@@ -73,7 +73,38 @@ class PenilaianSiswaModel {
             .order("created_at", { ascending: false });
 
         if (error) throw error;
-        return data;
+        const sessionIds = [...new Set((data || []).map((grade) => grade.sesi_id))];
+        if (sessionIds.length === 0) return data || [];
+
+        const { data: sessionGrades, error: sessionGradesError } = await supabase
+            .from(TABLE)
+            .select("sesi_id, nilai")
+            .in("sesi_id", sessionIds);
+
+        if (sessionGradesError) throw sessionGradesError;
+
+        const statsBySession = new Map();
+        for (const grade of sessionGrades || []) {
+            const score = Number(grade.nilai);
+            if (!Number.isFinite(score)) continue;
+
+            const stats = statsBySession.get(grade.sesi_id) || { total: 0, count: 0, highest: -Infinity };
+            stats.total += score;
+            stats.count += 1;
+            stats.highest = Math.max(stats.highest, score);
+            statsBySession.set(grade.sesi_id, stats);
+        }
+
+        return data.map((grade) => {
+            const stats = statsBySession.get(grade.sesi_id);
+            return {
+                ...grade,
+                rata_rata_kelas: stats?.count
+                    ? Math.round((stats.total / stats.count) * 100) / 100
+                    : null,
+                nilai_tertinggi: stats?.count ? stats.highest : null,
+            };
+        });
     }
 
     static async create(input) {
