@@ -276,7 +276,7 @@ export default function ManajemenSpp() {
                                     {siswa.tagihan.map((spp) => (
                                       <tr key={spp.id} className="hover:bg-gray-50">
                                         <td className="p-3 text-sm font-medium text-gray-800">
-                                          {spp.bulan_mulai} {spp.tahun_mulai}
+                                          {new Date(spp.tahun, spp.bulan - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                                         </td>
                                         <td className="p-3 text-sm text-gray-600">
                                           Rp {spp.nominal ? spp.nominal.toLocaleString('id-ID') : 0}
