@@ -3,15 +3,16 @@ const supabase = require('../config/supabaseClient');
 
 const checkSpp = async (req, res, next) => {
   try {
-    const siswaId = req.user.id; 
+    const siswaId = req.user.siswa_id || req.user.id;
+    const today = new Date().toISOString().split('T')[0];
     
     // Cek apakah ada tagihan 'Belum Bayar' yang sudah melewati tanggal_jatuh_tempo
     const { data: tagihanNunggak, error } = await supabase
       .from('tagihan_spp')
       .select('id')
       .eq('siswa_id', siswaId)
-      .eq('status', 'Belum Bayar') 
-      .lt('tanggal_jatuh_tempo', new Date().toISOString().split('T')[0]); 
+      .eq('status', 'Belum Bayar')
+      .lte('tanggal_jatuh_tempo', today);
 
     if (error) throw error;
 
