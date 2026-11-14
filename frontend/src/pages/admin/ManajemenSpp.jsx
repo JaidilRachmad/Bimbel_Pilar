@@ -25,10 +25,19 @@ export default function ManajemenSpp() {
   const fetchTagihan = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/tagihan-spp');
-      const rawData = response.data;
-      const fetchedItems = rawData?.data?.data || rawData?.data || rawData || [];
-      
+      // Ambil semua halaman (backend default 10 per halaman, maksimal 100)
+      const fetchedItems = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const response = await api.get('/tagihan-spp', { params: { page: currentPage, limit: 100 } });
+        const rawData = response.data;
+        const pageItems = rawData?.data?.data || rawData?.data || rawData || [];
+        fetchedItems.push(...(Array.isArray(pageItems) ? pageItems : []));
+        totalPages = rawData?.data?.meta?.total_pages || 1;
+        currentPage += 1;
+      } while (currentPage <= totalPages);
+
       const mappedData = fetchedItems.map((item, index) => {
         let metodeTersimpan = 'Transfer';
         let tanggalTersimpan = '-';
@@ -94,9 +103,14 @@ export default function ManajemenSpp() {
     }
   };
 
-  const handleHapus = (id) => {
-    if(window.confirm("Yakin ingin menghapus tagihan ini?")) {
-       setDataSpp(dataSpp.filter(spp => spp.id !== id));
+  const handleHapus = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus tagihan ini?")) return;
+
+    try {
+      await api.delete(`/tagihan-spp/${id}`);
+      fetchTagihan();
+    } catch (error) {
+      alert(error.response?.data?.message || "Gagal menghapus tagihan");
     }
   };
 
@@ -119,7 +133,7 @@ export default function ManajemenSpp() {
       fetchTagihan(); 
     } catch (error) {
       console.error(error);
-      alert("Gagal menyimpan tanggal. (Pastikan endpoint backend sudah dibuat)");
+      alert(error.response?.data?.message || "Gagal menyimpan tanggal.");
     } finally {
       setIsSaving(false);
     }
