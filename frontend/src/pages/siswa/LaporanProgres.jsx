@@ -69,6 +69,7 @@ export default function LaporanProgres() {
             nilaiSaya: nilai.nilai,
             rataRataKelas: nilai.rata_rata_kelas ?? '—',
             nilaiTertinggi: nilai.nilai_tertinggi ?? '—',
+            nilaiTertinggiNama: Array.isArray(nilai.nilai_tertinggi_nama) ? nilai.nilai_tertinggi_nama : [],
             keterangan: nilai.keterangan || '—',
             tanggalSort: dateValue,
             monthKey: getMonthKey(dateValue),
@@ -299,9 +300,16 @@ export default function LaporanProgres() {
                   </td>
                   <td className="p-4 text-center text-sm font-medium text-gray-600">{item.rataRataKelas}</td>
                   <td className="p-4 text-center">
-                    <span className="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 font-bold text-sm">
-                      {item.nilaiTertinggi}
-                    </span>
+                    <div className="inline-flex flex-col items-center gap-1">
+                      <span className="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 font-bold text-sm">
+                        {item.nilaiTertinggi}
+                      </span>
+                      {item.nilaiTertinggiNama.length > 0 && (
+                        <span className="text-[10px] font-medium text-orange-700">
+                          {item.nilaiTertinggiNama.join(', ')}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4 text-sm text-gray-600 italic max-w-xs">"{item.keterangan}"</td>
                 </tr>

@@ -78,20 +78,48 @@ class PenilaianSiswaModel {
 
         const { data: sessionGrades, error: sessionGradesError } = await supabase
             .from(TABLE)
-            .select("sesi_id, nilai")
+            .select("sesi_id, siswa_id, nilai")
             .in("sesi_id", sessionIds);
 
         if (sessionGradesError) throw sessionGradesError;
+
+        const studentIds = [...new Set((sessionGrades || []).map((grade) => grade.siswa_id).filter(Boolean))];
+        const studentNames = new Map();
+
+        if (studentIds.length > 0) {
+            const { data: profiles, error: profilesError } = await supabase
+                .from("siswa_profile")
+                .select("id, nama")
+                .in("id", studentIds);
+
+            if (profilesError) throw profilesError;
+            (profiles || []).forEach((profile) => {
+                studentNames.set(profile.id, profile.nama || "Siswa");
+            });
+        }
 
         const statsBySession = new Map();
         for (const grade of sessionGrades || []) {
             const score = Number(grade.nilai);
             if (!Number.isFinite(score)) continue;
 
-            const stats = statsBySession.get(grade.sesi_id) || { total: 0, count: 0, highest: -Infinity };
+            const stats = statsBySession.get(grade.sesi_id) || {
+                total: 0,
+                count: 0,
+                highest: -Infinity,
+                topStudentNames: new Map(),
+            };
             stats.total += score;
             stats.count += 1;
-            stats.highest = Math.max(stats.highest, score);
+
+            const studentName = studentNames.get(grade.siswa_id) || "Siswa";
+            if (score > stats.highest) {
+                stats.highest = score;
+                stats.topStudentNames = new Map([[grade.siswa_id, studentName]]);
+            } else if (score === stats.highest) {
+                stats.topStudentNames.set(grade.siswa_id, studentName);
+            }
+
             statsBySession.set(grade.sesi_id, stats);
         }
 
@@ -103,6 +131,7 @@ class PenilaianSiswaModel {
                     ? Math.round((stats.total / stats.count) * 100) / 100
                     : null,
                 nilai_tertinggi: stats?.count ? stats.highest : null,
+                nilai_tertinggi_nama: stats?.count ? [...stats.topStudentNames.values()].sort() : [],
             };
         });
     }
