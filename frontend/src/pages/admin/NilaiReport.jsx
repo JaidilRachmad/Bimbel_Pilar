@@ -34,6 +34,14 @@ function formatDate(value) {
     : date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function getGradeTimestamp(grade) {
+  const sesi = Array.isArray(grade.sesi_pembelajaran)
+    ? grade.sesi_pembelajaran[0]
+    : grade.sesi_pembelajaran;
+  const timestamp = Date.parse(sesi?.tanggal || grade.created_at || '');
+  return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
+}
+
 function getSessionPeriod(value) {
   const match = /^(\d{4})-(\d{2})/.exec(value || '');
   if (!match) return null;
@@ -244,7 +252,9 @@ export default function NilaiReport() {
       setError('');
       try {
         const grades = await getStudentGrades(selectedSiswa.id, selectedMonth?.key);
-        if (active) setNilaiList(grades);
+        if (active) {
+          setNilaiList([...grades].sort((a, b) => getGradeTimestamp(a) - getGradeTimestamp(b)));
+        }
       } catch (requestError) {
         if (active) {
           setNilaiList([]);
@@ -779,7 +789,7 @@ export default function NilaiReport() {
                       : [];
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50">
-                        <td className="p-4 text-center text-sm font-bold text-gray-500">{index + 1}</td>
+                        <td className="p-4 text-center text-sm font-medium text-gray-600">{index + 1}</td>
                         <td className="whitespace-nowrap p-4 text-sm text-gray-600">{formatDate(sesi?.tanggal || item.created_at)}</td>
                         <td className="p-4">
                           <p className="text-sm font-bold text-gray-800">{sesi?.mata_pelajaran || '-'}</p>
