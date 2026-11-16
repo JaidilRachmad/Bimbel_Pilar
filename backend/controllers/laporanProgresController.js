@@ -165,9 +165,13 @@ const LaporanProgresController = {
         const requestedPeriode = typeof req.body?.periode === "string" && req.body.periode.trim() !== ""
             ? req.body.periode.trim()
             : null;
+        const periodeKey = req.body?.periode_key;
+        if (periodeKey !== undefined && (typeof periodeKey !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(periodeKey))) {
+            throw AppError.badRequest("periode_key harus berformat YYYY-MM.");
+        }
 
         // Ambil data siswa & nilai
-        const studentData = await LaporanProgresModel.getStudentWithAcademicData(siswaId);
+        const studentData = await LaporanProgresModel.getStudentWithAcademicData(siswaId, periodeKey);
         if (!studentData) {
             throw AppError.notFound("Data siswa tidak ditemukan.");
         }
