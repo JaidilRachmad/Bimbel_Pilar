@@ -94,6 +94,7 @@ export default function NilaiReport() {
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthList, setMonthList] = useState([]);
+  const [monthSortOrder, setMonthSortOrder] = useState('desc');
   const [selectedSiswa, setSelectedSiswa] = useState(null);
   const [searchSiswa, setSearchSiswa] = useState('');
   const [studentPage, setStudentPage] = useState(1);
@@ -208,8 +209,7 @@ export default function NilaiReport() {
           if (period) periodsByKey.set(period.key, period);
         });
 
-        const periods = [...periodsByKey.values()]
-          .sort((left, right) => right.year - left.year || right.month - left.month);
+        const periods = [...periodsByKey.values()];
         const reports = await Promise.all(periods.map(async (period) => [
           period.label,
           await loadPeriodReportIds(period.label),
@@ -243,7 +243,7 @@ export default function NilaiReport() {
       setLoadingNilai(true);
       setError('');
       try {
-        const grades = await getStudentGrades(selectedSiswa.id);
+        const grades = await getStudentGrades(selectedSiswa.id, selectedMonth?.key);
         if (active) setNilaiList(grades);
       } catch (requestError) {
         if (active) {
@@ -259,7 +259,7 @@ export default function NilaiReport() {
     return () => {
       active = false;
     };
-  }, [selectedSiswa]);
+  }, [selectedSiswa, selectedMonth]);
 
   useEffect(() => {
     if (!selectedSiswa) return undefined;
@@ -320,7 +320,10 @@ export default function NilaiReport() {
     setLoadingAI(true);
     setStatusMessage({ type: '', text: '' });
     try {
-      const report = await generateStudentReport(selectedSiswa.id, { periode });
+      const report = await generateStudentReport(selectedSiswa.id, {
+        periode,
+        periodeKey: selectedMonth?.key,
+      });
       setCatatan(report.catatan_wali_kelas || '');
       setSaran(report.saran_pengembangan || '');
       setPeriode(report.periode || periode);
@@ -389,6 +392,11 @@ export default function NilaiReport() {
   const selectedPeriodReportIds = selectedMonth
     ? periodReportIds.get(selectedMonth.label) || new Set()
     : studentReportIds;
+  const sortedMonthList = [...monthList].sort((left, right) => (
+    monthSortOrder === 'desc'
+      ? right.year - left.year || right.month - left.month
+      : left.year - right.year || left.month - right.month
+  ));
   const hasReportableGrades = nilaiList.some((grade) => (
     grade.nilai !== null
     && grade.nilai !== undefined
@@ -468,24 +476,40 @@ export default function NilaiReport() {
               <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kelas
             </button>
           )}
-          <div className="mb-6">
-            {selectedMonth && (
-              <button
-                type="button"
-                onClick={() => setSelectedMonth(null)}
-                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
-              >
-                <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Bulan
-              </button>
+          <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              {selectedMonth && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth(null)}
+                  className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Bulan
+                </button>
+              )}
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedMonth ? `${selectedKelas.nama_kelas} - ${selectedMonth.label}` : selectedKelas.nama_kelas}
+              </h1>
+              <p className="mt-1 text-gray-500">
+                {selectedMonth
+                  ? 'Pilih siswa yang terdaftar di sesi pembelajaran bulan ini.'
+                  : 'Pilih bulan untuk melihat siswa dan status laporan belajarnya.'}
+              </p>
+            </div>
+            {!selectedMonth && (
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                Urutkan bulan
+                <select
+                  value={monthSortOrder}
+                  onChange={(event) => setMonthSortOrder(event.target.value)}
+                  aria-label="Urutkan card bulan"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none transition focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="desc">Terbaru ke terlama</option>
+                  <option value="asc">Terlama ke terbaru</option>
+                </select>
+              </label>
             )}
-            <h1 className="text-2xl font-bold text-gray-900">
-              {selectedMonth ? `${selectedKelas.nama_kelas} - ${selectedMonth.label}` : selectedKelas.nama_kelas}
-            </h1>
-            <p className="mt-1 text-gray-500">
-              {selectedMonth
-                ? 'Pilih siswa yang terdaftar di sesi pembelajaran bulan ini.'
-                : 'Pilih bulan untuk melihat siswa dan status laporan belajarnya.'}
-            </p>
           </div>
 
           {error && (
@@ -575,7 +599,7 @@ export default function NilaiReport() {
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {monthList.map((month) => {
+              {sortedMonthList.map((month) => {
                 const members = new Set(siswaKelas.map((membership) => membership.siswa_id));
                 const reportIds = periodReportIds.get(month.label) || new Set();
                 const totalStudents = members.size;
