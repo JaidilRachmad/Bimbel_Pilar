@@ -65,7 +65,7 @@ class PenilaianSiswaModel {
         return data;
     }
 
-    static async getBySiswaId(siswaId) {
+    static async getBySiswaId(siswaId, periode) {
         const { data, error } = await supabase
             .from(TABLE)
             .select(COLUMNS_WITH_SESSION)
@@ -73,8 +73,11 @@ class PenilaianSiswaModel {
             .order("created_at", { ascending: false });
 
         if (error) throw error;
-        const sessionIds = [...new Set((data || []).map((grade) => grade.sesi_id))];
-        if (sessionIds.length === 0) return data || [];
+        const filteredData = periode
+            ? (data || []).filter((grade) => String(grade.sesi_pembelajaran?.tanggal || "").startsWith(`${periode}-`))
+            : data || [];
+        const sessionIds = [...new Set(filteredData.map((grade) => grade.sesi_id))];
+        if (sessionIds.length === 0) return filteredData;
 
         const { data: sessionGrades, error: sessionGradesError } = await supabase
             .from(TABLE)
@@ -123,7 +126,7 @@ class PenilaianSiswaModel {
             statsBySession.set(grade.sesi_id, stats);
         }
 
-        return data.map((grade) => {
+        return filteredData.map((grade) => {
             const stats = statsBySession.get(grade.sesi_id);
             return {
                 ...grade,

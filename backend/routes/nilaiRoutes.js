@@ -29,6 +29,7 @@ router.use(authenticateToken);
  */
 // Endpoint khusus Siswa (hanya melihat nilai miliknya sendiri)
 router.get("/me", authorizeRoles(SISWA_ROLE), checkSpp, NilaiController.getMyNilai);
+router.get("/siswa/:siswaId", authorizeRoles(ADMIN_ROLE), NilaiController.getBySiswaId);
 
 /**
  * @swagger

@@ -9,7 +9,7 @@ const { asyncHandler, sendSuccess } = require("../utils/http");
 const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "sesi_id", "siswa_id"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "sesi_id", "siswa_id", "periode"]);
 
 function assertValid(errors) {
     if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
@@ -84,8 +84,13 @@ function validateListQuery(query) {
         siswa_id = query.siswa_id;
     }
 
+    if (query.periode !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(query.periode)) {
+        errors.push("Filter periode harus berformat YYYY-MM");
+    }
+
     assertValid(errors);
-    return { page, limit, sesi_id, siswa_id };
+    const periode = query.periode;
+    return { page, limit, sesi_id, siswa_id, periode };
 }
 
 async function assertGradeBelongsToTentor(sesiId, tentorId) {
@@ -138,6 +143,13 @@ const PenilaianSiswaController = {
         const siswaId = req.user.siswa_id || req.user.id;
         const data = await PenilaianSiswaModel.getBySiswaId(siswaId);
         return sendSuccess(res, 200, { data });
+    }),
+
+    getBySiswaId: asyncHandler(async (req, res) => {
+        const siswaId = validateId({ id: req.params.siswaId });
+        const { periode } = validateListQuery(req.query);
+        const data = await PenilaianSiswaModel.getBySiswaId(siswaId, periode);
+        return sendSuccess(res, 200, { data, meta: { page: 1, limit: data.length, total: data.length, total_pages: data.length ? 1 : 0 } });
     }),
 
     create: asyncHandler(async (req, res) => {

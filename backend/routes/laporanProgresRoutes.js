@@ -50,6 +50,9 @@ router.get("/me", authorizeRoles("siswa"), checkSpp, LaporanProgresController.ge
  *               periode:
  *                 type: string
  *                 example: "April 2026"
+ *               periode_key:
+ *                 type: string
+ *                 example: "2026-04"
  *     responses:
  *       200: { description: Laporan berhasil digenerate }
  *       400: { description: siswaId tidak valid }
