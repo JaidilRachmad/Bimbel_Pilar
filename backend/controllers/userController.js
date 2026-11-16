@@ -6,13 +6,15 @@ const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BULAN_INDONESIA = Object.freeze([
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-]);
-const MIN_TAHUN_TAGIHAN = 2000;
-const MAX_TAHUN_TAGIHAN = 2100;
-const MAX_NOMINAL_TAGIHAN = 9999999999.99;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const PAKET_LIST = Object.freeze(["Bulanan", "Tahunan"]);
+const METODE_LIST = Object.freeze(["Transfer", "Cash"]);
+
+function isValidDate(value) {
+  if (!DATE_PATTERN.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 function assertValid(errors) {
   if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
@@ -25,11 +27,9 @@ const createAccount = asyncHandler(async (req, res) => {
     noTelp,
     extraField,
     kelasId,
-    bulanMulai,
-    tahunMulai,
-    bulanSelesai,
-    tahunSelesai,
-    nominal,
+    tanggalMulaiBelajar,
+    paket,
+    metodePembayaran,
   } = req.body ?? {};
 
   if (!role || !nama || !noTelp) {
@@ -85,9 +85,12 @@ const createAccount = asyncHandler(async (req, res) => {
     ) {
       errors.push("nominal wajib berupa angka positif maksimal 2 angka desimal.");
     }
+    if (paket === "Tahunan" && !METODE_LIST.includes(metodePembayaran)) {
+      errors.push(`metodePembayaran wajib salah satu dari: ${METODE_LIST.join(", ")} untuk paket Tahunan.`);
+    }
 
     assertValid(errors);
-    tagihanSpp = { bulanMulai, tahunMulai, bulanSelesai, tahunSelesai, nominal };
+    tagihanSpp = { tanggalMulaiBelajar, paket, metodePembayaran };
   }
 
   const rawToken = tokenService.generateRandomToken();
