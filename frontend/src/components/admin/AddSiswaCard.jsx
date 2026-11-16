@@ -24,11 +24,9 @@ export default function AddSiswaCard({
     noTelp: initialData?.no_telp ?? '',
     extraField: initialData?.extraField ?? '',
     kelasId: initialData?.kelas?.id ?? '',
-    bulanMulai: '',
-    tahunMulai: '',
-    bulanSelesai: '',
-    tahunSelesai: '',
-    nominal: '',
+    tanggalMulaiBelajar: initialData?.tanggal_mulai_belajar ?? '',
+    paket: initialData?.paket ?? '',
+    metodePembayaran: '',
   })
   const hasChanges = mode === 'edit' && (
     form.nama.trim() !== (initialData?.nama ?? '').trim()
@@ -42,20 +40,29 @@ export default function AddSiswaCard({
   }
 
   const handleSubmit = (event) => {
-    event.preventDefault()
-    onSubmit({
-      role: 'siswa',
-      nama: form.nama.trim(),
-      noTelp: form.noTelp.trim(),
-      extraField: form.extraField.trim(),
-      kelasId: form.kelasId,
-      bulanMulai: form.bulanMulai,
-      tahunMulai: Number(form.tahunMulai),
-      bulanSelesai: form.bulanSelesai,
-      tahunSelesai: Number(form.tahunSelesai),
-      nominal: Number(form.nominal),
-    })
-  }
+  event.preventDefault()
+
+  const profileChanged = mode === 'create' || (
+    form.nama.trim() !== (initialData?.nama ?? '').trim()
+    || form.noTelp.trim() !== (initialData?.no_telp ?? '').trim()
+    || form.extraField.trim() !== (initialData?.extraField ?? '').trim()
+  )
+  const kelasChanged = mode === 'create'
+    || form.kelasId !== (initialData?.kelas?.id ?? '')
+
+  onSubmit({
+    role: 'siswa',
+    nama: form.nama.trim(),
+    noTelp: form.noTelp.trim(),
+    extraField: form.extraField.trim(),
+    kelasId: form.kelasId,
+    tanggalMulaiBelajar: form.tanggalMulaiBelajar,
+    paket: form.paket,
+    metodePembayaran: form.paket === 'Tahunan' ? form.metodePembayaran : '',
+    _profileChanged: profileChanged,
+    _kelasChanged: kelasChanged,
+  })
+}
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm">
@@ -112,26 +119,21 @@ export default function AddSiswaCard({
               {MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
             </select>
           </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Tahun mulai
-            <input name="tahunMulai" type="number" value={form.tahunMulai} onChange={updateField} required min={MIN_YEAR} max={MAX_YEAR} step="1" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100" />
-          </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Bulan selesai
-            <select name="bulanSelesai" value={form.bulanSelesai} onChange={updateField} required className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100">
-              <option value="">Pilih bulan</option>
-              {MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
-            </select>
-          </label>
-          <label className="block text-sm font-medium text-gray-700">
-            Tahun selesai
-            <input name="tahunSelesai" type="number" value={form.tahunSelesai} onChange={updateField} required min={MIN_YEAR} max={MAX_YEAR} step="1" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100" />
-          </label>
-          <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
-            Nominal tagihan per bulan (Rp)
-            <input name="nominal" type="number" value={form.nominal} onChange={updateField} required min="0.01" max="9999999999.99" step="0.01" inputMode="decimal" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100" />
-            <span className="mt-1 block text-xs font-normal text-gray-500">Nominal ini akan diterapkan ke setiap bulan dalam rentang yang dipilih.</span>
-          </label>
+          {form.paket === 'Tahunan' && (
+            <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
+              Metode pembayaran
+              <select name="metodePembayaran" value={form.metodePembayaran} onChange={updateField} required className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100">
+                <option value="">Pilih metode</option>
+                <option value="Transfer">Transfer</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </label>
+          )}
+          {selectedKelas && (
+            <p className="text-xs text-gray-500 sm:col-span-2">
+              Harga kelas: Rp {Number(selectedKelas.harga || 0).toLocaleString('id-ID')} per bulan.
+            </p>
+          )}
         </fieldset>}
       </div>
 
@@ -141,7 +143,7 @@ export default function AddSiswaCard({
       )}
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <div className="mt-6 flex justify-end">
-        <button type="submit" disabled={submitting || (mode === 'edit' ? !hasChanges : (kelasLoading || kelasList.length === 0 || Boolean(kelasError)))} className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={submitting || (mode === 'edit' ? !hasChanges : (kelasLoading || kelasList.length === 0 || Boolean(kelasError) || !form.tanggalMulaiBelajar || !form.paket || (form.paket === 'Tahunan' && !form.metodePembayaran)))} className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60">
           {submitting ? (mode === 'edit' ? 'Menyimpan...' : 'Membuat akun...') : (mode === 'edit' ? 'Simpan perubahan' : 'Buat akun siswa')}
         </button>
       </div>
