@@ -9,10 +9,17 @@ export async function generateStudentReport(siswaId, { periode, periodeKey } = {
 }
 
 export async function getStudentGrades(siswaId, periodeKey) {
-  const { data } = await api.get(`/nilai/siswa/${siswaId}`, {
-    params: { periode: periodeKey, limit: 100 },
+  const { data } = siswaId
+    ? await api.get('/nilai', { params: { siswa_id: siswaId, limit: 100 } })
+    : await api.get('/nilai/me');
+  const grades = data.data.data;
+  if (!periodeKey) return grades;
+  return grades.filter((grade) => {
+    const sesi = Array.isArray(grade.sesi_pembelajaran)
+      ? grade.sesi_pembelajaran[0]
+      : grade.sesi_pembelajaran;
+    return String(sesi?.tanggal || '').startsWith(`${periodeKey}-`);
   });
-  return data.data.data;
 }
 
 export async function saveStudentReport(payload) {
