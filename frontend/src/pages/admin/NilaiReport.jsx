@@ -8,7 +8,7 @@ import { getAllUsers } from '../../services/userService';
 import { getKelasSessions } from '../../services/jadwalMateriService';
 import {
   ArrowLeft, Check, CheckCircle2, ChevronRight,
-  AlertCircle, CalendarDays, ClipboardCheck, Edit3, Filter, LoaderCircle, Save, School, Search, Sparkles, User, Users
+  AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Search, Sparkles, User, Users
 } from 'lucide-react';
 
 const LIMIT_SISWA = 10;
@@ -756,6 +756,7 @@ export default function NilaiReport() {
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Pertemuan Ke -</th>
                     <th className="border-b border-gray-200 p-4 font-semibold">Tanggal</th>
                     <th className="border-b border-gray-200 p-4 font-semibold">Sesi / Materi</th>
                     <th className="border-b border-gray-200 p-4 text-center font-semibold">Nilai</th>
@@ -766,10 +767,10 @@ export default function NilaiReport() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loadingNilai ? (
-                    <tr><td colSpan="6" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
+                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
                   ) : nilaiList.length === 0 ? (
-                    <tr><td colSpan="6" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
-                  ) : nilaiList.map((item) => {
+                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
+                  ) : nilaiList.map((item, index) => {
                     const sesi = Array.isArray(item.sesi_pembelajaran)
                       ? item.sesi_pembelajaran[0]
                       : item.sesi_pembelajaran;
@@ -778,6 +779,7 @@ export default function NilaiReport() {
                       : [];
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50">
+                        <td className="p-4 text-center text-sm font-bold text-gray-500">{index + 1}</td>
                         <td className="whitespace-nowrap p-4 text-sm text-gray-600">{formatDate(sesi?.tanggal || item.created_at)}</td>
                         <td className="p-4">
                           <p className="text-sm font-bold text-gray-800">{sesi?.mata_pelajaran || '-'}</p>
