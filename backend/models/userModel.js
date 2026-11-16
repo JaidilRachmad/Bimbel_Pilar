@@ -4,10 +4,7 @@ const crypto = require("crypto");
 const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
-const BULAN_INDONESIA = Object.freeze([
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-]);
+const USER_PAGE_SIZE = 1000;
 
 async function rollbackSiswaCreation(userId) {
   const rollbackOperations = [
@@ -30,26 +27,35 @@ async function rollbackSiswaCreation(userId) {
   return errors;
 }
 
-function createMonthlyBills(siswaId, { bulanMulai, tahunMulai, bulanSelesai, tahunSelesai, nominal }) {
-  const start = tahunMulai * 12 + BULAN_INDONESIA.indexOf(bulanMulai);
-  const end = tahunSelesai * 12 + BULAN_INDONESIA.indexOf(bulanSelesai);
+function monthKey(dateString) {
+  const [year, month] = dateString.split("-").map(Number);
+  return year * 12 + month - 1;
+}
+
+function createMonthlyBills(siswaId, { harga, periode_mulai, periode_selesai, tanggalMulaiBelajar, paket }) {
+  const classStart = monthKey(periode_mulai);
+  const classEnd = monthKey(periode_selesai);
+  const requestedStart = monthKey(tanggalMulaiBelajar);
+  const start = Math.max(classStart, requestedStart);
+  const end = classEnd;
+  const effectivePaket = requestedStart > classStart ? "Bulanan" : paket;
+  const nominal = effectivePaket === "Tahunan" ? Math.round(harga * 0.9) : harga;
   const bills = [];
 
   for (let monthNumber = start; monthNumber <= end; monthNumber += 1) {
     const year = Math.floor(monthNumber / 12);
     const monthIndex = monthNumber % 12;
-    const month = BULAN_INDONESIA[monthIndex];
-    const dueDate = new Date(Date.UTC(year, monthIndex, 1)).toISOString().slice(0, 10);
+    const dueDate = new Date(Date.UTC(year, monthIndex, 10)).toISOString().slice(0, 10);
 
     bills.push({
       siswa_id: siswaId,
       nominal,
-      status: "Belum Bayar",
+      status: effectivePaket === "Tahunan" ? "Lunas" : "Belum Bayar",
       tanggal_jatuh_tempo: dueDate,
-      bulan_mulai: month,
-      tahun_mulai: year,
-      bulan_selesai: month,
-      tahun_selesai: year,
+      bulan: monthIndex + 1,
+      tahun: year,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
   }
 
@@ -58,12 +64,14 @@ function createMonthlyBills(siswaId, { bulanMulai, tahunMulai, bulanSelesai, tah
 
 class UserModel {
   async createUserProfile({ role, tokenAkses, nama, noTelp, extraField, kelasId, tagihanSpp }) {
+    let kelas;
     if (role === "siswa") {
-      const { data: kelas, error: kelasError } = await supabase
+      const { data, error: kelasError } = await supabase
         .from("kelas")
-        .select("id")
+        .select("id, harga, periode_mulai, periode_selesai")
         .eq("id", kelasId)
         .maybeSingle();
+      kelas = data;
 
       if (kelasError) {
         throw AppError.internal(`Gagal memeriksa kelas siswa: ${kelasError.message}`);
@@ -71,6 +79,9 @@ class UserModel {
 
       if (!kelas) {
         throw AppError.notFound("Kelas yang dipilih tidak ditemukan.");
+      }
+      if (monthKey(tagihanSpp.tanggalMulaiBelajar) > monthKey(kelas.periode_selesai)) {
+        throw AppError.badRequest("Tanggal mulai belajar tidak boleh setelah periode kelas selesai.");
       }
     }
 
@@ -96,19 +107,49 @@ class UserModel {
 
         const { error: kelasSiswaError } = await supabase
           .from("kelas_siswa")
-          .insert([{ siswa_id: userId, kelas_id: kelasId }]);
+          .insert([{
+            siswa_id: userId,
+            kelas_id: kelasId,
+            tanggal_mulai_belajar: tagihanSpp.tanggalMulaiBelajar,
+            paket: monthKey(tagihanSpp.tanggalMulaiBelajar) > monthKey(kelas.periode_mulai)
+              ? "Bulanan"
+              : tagihanSpp.paket,
+          }]);
 
         if (kelasSiswaError) {
           throw AppError.internal(`Gagal menghubungkan siswa ke kelas: ${kelasSiswaError.message}`);
         }
 
-        const bills = createMonthlyBills(userId, tagihanSpp);
-        const { error: tagihanError } = await supabase
+        const effectivePaket = monthKey(tagihanSpp.tanggalMulaiBelajar) > monthKey(kelas.periode_mulai)
+          ? "Bulanan"
+          : tagihanSpp.paket;
+        const bills = createMonthlyBills(userId, {
+          ...kelas,
+          ...tagihanSpp,
+        });
+        const { data: insertedBills, error: tagihanError } = await supabase
           .from("tagihan_spp")
-          .insert(bills);
+          .insert(bills)
+          .select("id, nominal, bulan, tahun");
 
         if (tagihanError) {
           throw AppError.internal(`Gagal membuat tagihan SPP siswa: ${tagihanError.message}`);
+        }
+
+        if (effectivePaket === "Tahunan") {
+          const paidAt = new Date().toISOString().split("T")[0];
+          const invoices = (insertedBills || []).map((bill, index) => ({
+            tagihan_id: bill.id,
+            nomor_invoice: `INV/${bill.tahun}/${String(bill.bulan).padStart(2, "0")}/${Date.now()}${index}`,
+            tanggal_pembayaran: paidAt,
+            total_pembayaran: bill.nominal,
+            metode_pembayaran: tagihanSpp.metodePembayaran,
+            keterangan: "Pembayaran SPP tahunan",
+          }));
+          const { error: invoiceError } = await supabase.from("invoice_pembayaran").insert(invoices);
+          if (invoiceError) {
+            throw AppError.internal(`Gagal membuat invoice SPP tahunan: ${invoiceError.message}`);
+          }
         }
       } catch (error) {
         const rollbackErrors = await rollbackSiswaCreation(userId);
@@ -212,26 +253,44 @@ class UserModel {
   }
 
   async findAllUsers(roleFilter) {
-    let query = supabase.from("profiles").select(`
-      id, role, token_akses, created_at,
-      siswa_profile ( nama, no_telp, nama_wali,
-        kelas_siswa ( kelas:kelas_id ( id, nama_kelas ) )
-      ),
-      tentor_profile ( nama, no_telp, alamat )
-    `);
+    const profiles = [];
+    let offset = 0;
 
-    if (roleFilter) {
-      query = query.eq("role", roleFilter);
-    }
+    while (true) {
+      let query = supabase.from("profiles").select(`
+        id, role, token_akses, created_at,
+        siswa_profile ( nama, no_telp, nama_wali,
+          kelas_siswa ( kelas:kelas_id ( id, nama_kelas ) )
+        ),
+        tentor_profile ( nama, no_telp, alamat )
+      `, { count: "exact" });
 
-    const { data: profiles, error } = await query;
+      if (roleFilter) query = query.eq("role", roleFilter);
 
-    if (error) {
-      throw AppError.internal(`Gagal mengambil data pengguna: ${error.message}`);
+      const { data, error, count } = await query
+        .order("id", { ascending: true })
+        .range(offset, offset + USER_PAGE_SIZE - 1);
+
+      if (error) {
+        throw AppError.internal(`Gagal mengambil data pengguna: ${error.message}`);
+      }
+
+      profiles.push(...data);
+      if (!Number.isInteger(count) || count < 0) {
+        throw AppError.internal("Gagal mengambil jumlah data pengguna dari database.");
+      }
+      if (offset + data.length >= count) break;
+      if (data.length === 0) {
+        throw AppError.internal("Gagal memuat seluruh data pengguna: halaman pengguna kosong sebelum data selesai diambil.");
+      }
+      offset += data.length;
     }
 
     return profiles.map((p) => {
-      const kelasSiswa = p.siswa_profile?.kelas_siswa?.[0]?.kelas;
+      const kelasList = (p.siswa_profile?.kelas_siswa ?? [])
+        .map((membership) => membership.kelas)
+        .filter(Boolean)
+        .map((kelas) => ({ id: kelas.id, nama: kelas.nama_kelas }));
       return {
         id: p.id,
         role: p.role,
@@ -240,7 +299,8 @@ class UserModel {
         nama: p.siswa_profile?.nama ?? p.tentor_profile?.nama ?? null,
         no_telp: p.siswa_profile?.no_telp ?? p.tentor_profile?.no_telp ?? null,
         extraField: p.siswa_profile?.nama_wali ?? p.tentor_profile?.alamat ?? null,
-        kelas: kelasSiswa ? { id: kelasSiswa.id, nama: kelasSiswa.nama_kelas } : null,
+        kelas: kelasList[0] ?? null,
+        kelasList,
       };
     });
   }

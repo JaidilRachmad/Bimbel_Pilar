@@ -76,6 +76,38 @@ router.post("/", TagihanSppController.create);
 
 /**
  * @swagger
+ * /tagihan-spp/{id}/bayar:
+ *   put:
+ *     summary: Konfirmasi pelunasan SPP dan generate E-Kwitansi (Admin)
+ *     tags: [Tagihan SPP]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+ *     requestBody:
+ *       required: true
+ *       content: 
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tanggal_pembayaran: { type: string, format: date, example: "2026-05-05" }
+ *               metode_pembayaran: { type: string, example: "Transfer" }
+ *     responses:
+ *       200: { description: Pembayaran berhasil dikonfirmasi }
+ */
+router.put("/:id/bayar", TagihanSppController.bayarTagihan);
+
+/**
+ * @swagger
+ * /tagihan-spp/{id}/edit-tanggal:
+ *   put:
+ *     summary: Edit tanggal pembayaran invoice (Admin)
+ *     tags: [Tagihan SPP]
+ */
+router.put("/:id/edit-tanggal", TagihanSppController.editTanggal);
+
+/**
+ * @swagger
  * /tagihan-spp/{id}:
  *   parameters:
  *     - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -107,5 +139,6 @@ router.post("/", TagihanSppController.create);
 router.get("/:id", TagihanSppController.getById);
 router.put("/:id", TagihanSppController.update);
 router.delete("/:id", TagihanSppController.remove);
+router.put("/:id/edit-tanggal", TagihanSppController.editTanggal);
 
 module.exports = router;    

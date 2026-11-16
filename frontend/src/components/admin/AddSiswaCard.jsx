@@ -1,12 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, UserRoundPlus } from 'lucide-react'
-
-const MONTHS = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-]
-const MIN_YEAR = 2000
-const MAX_YEAR = 2100
 
 export default function AddSiswaCard({
   kelasList,
@@ -32,7 +25,17 @@ export default function AddSiswaCard({
     form.nama.trim() !== (initialData?.nama ?? '').trim()
     || form.noTelp.trim() !== (initialData?.no_telp ?? '').trim()
     || form.extraField.trim() !== (initialData?.extraField ?? '').trim()
+    || form.kelasId !== (initialData?.kelas?.id ?? '')
+    || form.tanggalMulaiBelajar !== (initialData?.tanggal_mulai_belajar ?? '')
+    || form.paket !== (initialData?.paket ?? '')
   )
+
+  const selectedKelas = kelasList.find((kelas) => kelas.id === form.kelasId)
+  useEffect(() => {
+    if (mode === 'create' && selectedKelas?.periode_mulai && !form.tanggalMulaiBelajar) {
+      setForm((current) => ({ ...current, tanggalMulaiBelajar: selectedKelas.periode_mulai }))
+    }
+  }, [mode, selectedKelas, form.tanggalMulaiBelajar])
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -94,22 +97,24 @@ export default function AddSiswaCard({
           Nama orang tua / wali
           <input name="extraField" value={form.extraField} onChange={updateField} required maxLength={100} autoComplete="name" className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100" />
         </label>
-        {mode === 'create' ? <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700">
           Kelas
-          <select name="kelasId" value={form.kelasId} onChange={updateField} required disabled={kelasLoading || kelasList.length === 0} className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100">
+          <select
+            name="kelasId"
+            value={form.kelasId}
+            onChange={updateField}
+            required
+            disabled={kelasLoading || kelasList.length === 0}
+            className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100"
+          >
             <option value="">{kelasLoading ? 'Memuat kelas...' : 'Pilih kelas'}</option>
             {kelasList.map((kelas) => (
-              <option key={kelas.id} value={kelas.id}>{kelas.nama_kelas} ({kelas.jenjang})</option>
+              <option key={kelas.id} value={kelas.id}>
+                {kelas.nama_kelas} ({kelas.jenjang})
+              </option>
             ))}
           </select>
-        </label> : (
-          <div className="text-sm font-medium text-gray-700">
-            Kelas
-            <p className="mt-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-600">
-              {initialData?.kelas?.nama ?? 'Belum ada kelas'}
-            </p>
-          </div>
-        )}
+        </label>
         {mode === 'create' && <fieldset className="grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2">
           <legend className="px-1 text-sm font-semibold text-gray-700">Periode tagihan SPP</legend>
           <label className="block text-sm font-medium text-gray-700">

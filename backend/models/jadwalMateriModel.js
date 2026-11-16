@@ -80,19 +80,45 @@ class JadwalMateriModel {
         return item;
     }
 
+    static async getByIdForTentor(id, tentorId) {
+        const { data, error } = await supabase
+            .from(TABLE)
+            .select(COLUMNS)
+            .eq("id", id)
+            .eq("tentor_id", tentorId)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) throw AppError.notFound(NOT_FOUND);
+        return data;
+    }
+
     static async create(input) {
+        await JadwalMateriModel.#assertClassAssignment(input.kelas_id, input.tentor_id);
         return JadwalMateriModel.#insert(pickWritable(input));
     }
 
-    static async update(id, input) {
-        const item = await JadwalMateriModel.#updateById(id, pickWritable(input));
+    static async update(id, input, tentorId) {
+        await JadwalMateriModel.getByIdForTentor(id, tentorId);
+        await JadwalMateriModel.#assertClassAssignment(input.kelas_id, tentorId);
+        const item = await JadwalMateriModel.#updateById(id, pickWritable(input), tentorId);
         if (!item) throw AppError.notFound(NOT_FOUND);
         return item;
     }
 
-    static async remove(id) {
-        const deleted = await JadwalMateriModel.#deleteById(id);
+    static async remove(id, tentorId) {
+        const deleted = await JadwalMateriModel.#deleteById(id, tentorId);
         if (!deleted) throw AppError.notFound(NOT_FOUND);
+    }
+
+    static async #assertClassAssignment(kelasId, tentorId) {
+        const { data, error } = await supabase
+            .from("kelas_tentor")
+            .select("id")
+            .eq("kelas_id", kelasId)
+            .eq("tentor_id", tentorId)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) throw AppError.forbidden("Kelas ini tidak termasuk kelas yang Anda ampu.");
     }
 
     static async #selectPage({ offset, limit, kelas_id, tentor_id }) {
@@ -121,14 +147,22 @@ class JadwalMateriModel {
         return data;
     }
 
-    static async #updateById(id, payload) {
-        const { data, error } = await supabase.from(TABLE).update(payload).eq("id", id).select(COLUMNS).maybeSingle();
+    static async #updateById(id, payload, tentorId) {
+        const { data, error } = await supabase.from(TABLE).update(payload)
+            .eq("id", id)
+            .eq("tentor_id", tentorId)
+            .select(COLUMNS)
+            .maybeSingle();
         if (error) throw error;
         return data;
     }
 
-    static async #deleteById(id) {
-        const { data, error } = await supabase.from(TABLE).delete().eq("id", id).select("id").maybeSingle();
+    static async #deleteById(id, tentorId) {
+        const { data, error } = await supabase.from(TABLE).delete()
+            .eq("id", id)
+            .eq("tentor_id", tentorId)
+            .select("id")
+            .maybeSingle();
         if (error) throw error;
         return data;
     }

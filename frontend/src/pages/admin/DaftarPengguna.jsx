@@ -6,7 +6,6 @@ import {
   getAllUsers,
   updateAccessToken,
   updateUserData,
-  updateUserKelas,  
 } from '../../services/userService';
 import { syncTentorKelas } from '../../services/kelasTentorService';
 import { getErrorInfo } from '../../services/authService';
@@ -99,7 +98,7 @@ export default function DaftarPengguna() {
     setCreateError('');
 
     try {
-      const { kelasIds = [], kelasId, _profileChanged, _kelasChanged,...profileData } = account;
+      const { kelasIds = [], _profileChanged, ...profileData } = account;
 
      
       if (editingUser.role === 'tentor') {
@@ -107,9 +106,6 @@ export default function DaftarPengguna() {
         await syncTentorKelas(editingUser.id, kelasIds);
       }
       if (editingUser.role === 'siswa') {
-      if (_kelasChanged) {
-        await updateUserKelas(editingUser.id, kelasId);
-      }
       if (_profileChanged) {
         await updateUserData(editingUser.id, {
           nama: profileData.nama,

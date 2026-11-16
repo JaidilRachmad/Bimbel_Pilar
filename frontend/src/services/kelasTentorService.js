@@ -9,6 +9,12 @@ export async function getKelasTentor({ page = 1, limit = 100, kelas_id, tentor_i
   return data.data // { data: assignment[], meta }
 }
 
+// Khusus tentor: kelas yang diampu tentor yang sedang login
+export async function getKelasMy() {
+  const { data } = await api.get('/kelas-tentor/my')
+  return data.data.data // assignment[] -> { id, kelas_id, tentor_id, kelas: { id, nama_kelas, jenjang } }
+}
+
 export async function createKelasTentor({ kelas_id, tentor_id }) {
   const { data } = await api.post('/kelas-tentor', { kelas_id, tentor_id })
   return data.data.data
