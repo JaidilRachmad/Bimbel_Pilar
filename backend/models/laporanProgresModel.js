@@ -136,7 +136,7 @@ class LaporanProgresModel {
     }
 
     // Ambil data siswa lengkap dengan kelas dan histori nilai untuk bahan prompt AI
-    static async getStudentWithAcademicData(siswaId) {
+    static async getStudentWithAcademicData(siswaId, periodeKey) {
         // 1. Cek profil siswa di siswa_profile
         let { data: siswa, error: siswaErr } = await supabase
             .from("siswa_profile")
@@ -202,6 +202,10 @@ class LaporanProgresModel {
             throw AppError.internal(`Gagal mengambil nilai siswa: ${nilaiErr.message}`);
         }
 
+        const filteredNilaiList = periodeKey
+            ? (nilaiList || []).filter((nilai) => String(nilai.sesi_pembelajaran?.tanggal || "").startsWith(`${periodeKey}-`))
+            : (nilaiList || []);
+
         return {
             id: siswa.id,
             nama: siswa.nama || "Siswa",
@@ -210,7 +214,7 @@ class LaporanProgresModel {
             kelas_id: kelasSiswa?.kelas?.id || null,
             nama_kelas: kelasSiswa?.kelas?.nama_kelas || null,
             jenjang: kelasSiswa?.kelas?.jenjang || null,
-            grades: (nilaiList || []).map((n) => ({
+            grades: filteredNilaiList.map((n) => ({
                 id: n.id,
                 nilai: n.nilai,
                 keterangan: n.keterangan,
