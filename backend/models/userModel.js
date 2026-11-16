@@ -143,7 +143,7 @@ class UserModel {
             nomor_invoice: `INV/${bill.tahun}/${String(bill.bulan).padStart(2, "0")}/${Date.now()}${index}`,
             tanggal_pembayaran: paidAt,
             total_pembayaran: bill.nominal,
-            metode_pembayaran: "Tahunan",
+            metode_pembayaran: tagihanSpp.metodePembayaran,
             keterangan: "Pembayaran SPP tahunan",
           }));
           const { error: invoiceError } = await supabase.from("invoice_pembayaran").insert(invoices);
