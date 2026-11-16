@@ -13,11 +13,9 @@ export async function createAccount({
   noTelp,
   extraField,
   kelasId,
-  bulanMulai,
-  tahunMulai,
-  bulanSelesai,
-  tahunSelesai,
-  nominal,
+  tanggalMulaiBelajar,
+  paket,
+  metodePembayaran,
 }) {
   const { data } = await api.post('/user', {
     role,
@@ -25,11 +23,9 @@ export async function createAccount({
     noTelp,
     extraField,
     kelasId,
-    bulanMulai,
-    tahunMulai,
-    bulanSelesai,
-    tahunSelesai,
-    nominal,
+    tanggalMulaiBelajar,
+    paket,
+    metodePembayaran,
   })
   return data.data // { id, role, nama, token_akses_asli }
 }
