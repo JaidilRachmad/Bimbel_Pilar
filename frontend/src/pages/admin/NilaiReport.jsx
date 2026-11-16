@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
-  generateStudentReport, getStudentGrades, getStudentReport, getStudentReportIds, saveStudentReport,
+  generateStudentReport, getAllLaporan, getStudentGrades, getStudentReport, getStudentReportIds, saveStudentReport,
 } from '../../services/laporanService';
 import { getAllKelas } from '../../services/kelasService';
 import { getAllUsers } from '../../services/userService';
+import { getKelasSessions } from '../../services/jadwalMateriService';
 import {
   ArrowLeft, Check, CheckCircle2, ChevronRight, Download,
-  AlertCircle, Edit3, LoaderCircle, Save, School, Search, Sparkles, User, Users
+  AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Sparkles, User, Users
 } from 'lucide-react';
 
 const LIMIT_SISWA = 10;
@@ -33,10 +34,66 @@ function formatDate(value) {
     : date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function getSessionPeriod(value) {
+  const match = /^(\d{4})-(\d{2})/.exec(value || '');
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+
+  return {
+    key: `${match[1]}-${match[2]}`,
+    year,
+    month,
+    label: new Date(year, month - 1, 1).toLocaleDateString('id-ID', {
+      month: 'long',
+      year: 'numeric',
+    }),
+  };
+}
+
+async function loadKelasSessions(kelasId) {
+  const firstPage = await getKelasSessions({ kelas_id: kelasId, page: 1, limit: 10 });
+  if (!Array.isArray(firstPage?.data) || !firstPage.meta) {
+    throw new Error('Format data sesi pembelajaran dari server tidak valid.');
+  }
+
+  const sessions = [...firstPage.data];
+  for (let page = 2; page <= firstPage.meta.total_pages; page += 1) {
+    const result = await getKelasSessions({ kelas_id: kelasId, page, limit: 10 });
+    if (!Array.isArray(result?.data)) {
+      throw new Error('Format data sesi pembelajaran dari server tidak valid.');
+    }
+    sessions.push(...result.data);
+  }
+  return sessions;
+}
+
+async function loadPeriodReportIds(periode) {
+  const reportIds = new Set();
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const result = await getAllLaporan({ page, limit: 100, periode });
+    if (!Array.isArray(result?.data) || !result.meta) {
+      throw new Error('Format data laporan dari server tidak valid.');
+    }
+    result.data.forEach((report) => reportIds.add(report.siswa_id));
+    totalPages = result.meta.total_pages;
+    page += 1;
+  }
+  return reportIds;
+}
+
 export default function NilaiReport() {
   const [kelasList, setKelasList] = useState([]);
   const [studentReportIds, setStudentReportIds] = useState(new Set());
+  const [periodReportIds, setPeriodReportIds] = useState(new Map());
   const [selectedKelas, setSelectedKelas] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [monthList, setMonthList] = useState([]);
   const [selectedSiswa, setSelectedSiswa] = useState(null);
   const [searchSiswa, setSearchSiswa] = useState('');
   const [studentPage, setStudentPage] = useState(1);
@@ -45,6 +102,7 @@ export default function NilaiReport() {
   const [saran, setSaran] = useState('');
   const [periode, setPeriode] = useState(currentPeriod);
   const [loadingKelas, setLoadingKelas] = useState(true);
+  const [loadingMonths, setLoadingMonths] = useState(false);
   const [loadingNilai, setLoadingNilai] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -133,6 +191,51 @@ export default function NilaiReport() {
   }, []);
 
   useEffect(() => {
+    if (!selectedKelas || selectedKelas.id === 'unassigned-students') return undefined;
+    let active = true;
+
+    async function loadMonths() {
+      setLoadingMonths(true);
+      setError('');
+      setMonthList([]);
+      setPeriodReportIds(new Map());
+
+      try {
+        const sessions = await loadKelasSessions(selectedKelas.id);
+        const periodsByKey = new Map();
+        sessions.forEach((session) => {
+          const period = getSessionPeriod(session.tanggal);
+          if (period) periodsByKey.set(period.key, period);
+        });
+
+        const periods = [...periodsByKey.values()]
+          .sort((left, right) => right.year - left.year || right.month - left.month);
+        const reports = await Promise.all(periods.map(async (period) => [
+          period.label,
+          await loadPeriodReportIds(period.label),
+        ]));
+
+        if (active) {
+          setMonthList(periods);
+          setPeriodReportIds(new Map(reports));
+        }
+      } catch (requestError) {
+        if (active) {
+          setMonthList([]);
+          setError(getErrorMessage(requestError, 'Gagal memuat sesi pembelajaran.'));
+        }
+      } finally {
+        if (active) setLoadingMonths(false);
+      }
+    }
+
+    loadMonths();
+    return () => {
+      active = false;
+    };
+  }, [selectedKelas]);
+
+  useEffect(() => {
     if (!selectedSiswa) return undefined;
     let active = true;
 
@@ -192,7 +295,7 @@ export default function NilaiReport() {
     setNilaiList([]);
     setCatatan('');
     setSaran('');
-    setPeriode(currentPeriod());
+    setPeriode(selectedMonth?.label || currentPeriod());
     setLoadingReport(true);
     setError('');
     setStatusMessage({ type: '', text: '' });
@@ -255,6 +358,13 @@ export default function NilaiReport() {
         saran_pengembangan: saran.trim(),
       });
       setStudentReportIds((current) => new Set(current).add(selectedSiswa.id));
+      setPeriodReportIds((current) => {
+        const next = new Map(current);
+        const reportIds = new Set(next.get(periode.trim()) || []);
+        reportIds.add(selectedSiswa.id);
+        next.set(periode.trim(), reportIds);
+        return next;
+      });
       setStatusMessage({ type: 'success', text: 'Laporan berhasil disimpan atau diperbarui di database.' });
     } catch (requestError) {
       setStatusMessage({
@@ -276,6 +386,9 @@ export default function NilaiReport() {
     studentPage * LIMIT_SISWA,
   );
   const hasAssignedClass = selectedKelas?.id !== 'unassigned-students';
+  const selectedPeriodReportIds = selectedMonth
+    ? periodReportIds.get(selectedMonth.label) || new Set()
+    : studentReportIds;
   const hasReportableGrades = nilaiList.some((grade) => (
     grade.nilai !== null
     && grade.nilai !== undefined
@@ -318,9 +431,8 @@ export default function NilaiReport() {
                   key={kelas.id}
                   type="button"
                   onClick={() => {
+                    setSelectedMonth(null);
                     setSelectedKelas(kelas);
-                    setSearchSiswa('');
-                    setStudentPage(1);
                   }}
                   className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                 >
@@ -345,35 +457,50 @@ export default function NilaiReport() {
         </>
       ) : !selectedSiswa ? (
         <>
-          <button
-            type="button"
-            onClick={() => setSelectedKelas(null)}
-            className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
-          >
-            <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kelas
-          </button>
+          {!selectedMonth && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedKelas(null);
+              }}
+              className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
+            >
+              <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kelas
+            </button>
+          )}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">{selectedKelas.nama_kelas}</h1>
-            <p className="mt-1 text-gray-500">Pilih siswa untuk melihat nilai dan membuat laporan.</p>
+            {selectedMonth && (
+              <button
+                type="button"
+                onClick={() => setSelectedMonth(null)}
+                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
+              >
+                <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Bulan
+              </button>
+            )}
+            <h1 className="text-2xl font-bold text-gray-900">
+              {selectedMonth ? `${selectedKelas.nama_kelas} - ${selectedMonth.label}` : selectedKelas.nama_kelas}
+            </h1>
+            <p className="mt-1 text-gray-500">
+              {selectedMonth
+                ? 'Pilih siswa yang terdaftar di sesi pembelajaran bulan ini.'
+                : 'Pilih bulan untuk melihat siswa dan status laporan belajarnya.'}
+            </p>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <div className="flex flex-col items-center justify-between gap-4 border-b border-gray-100 p-4 md:flex-row">
-                <div className="relative w-full md:w-80">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="search"
-                    value={searchSiswa}
-                    onChange={(event) => handleSearchSiswa(event.target.value)}
-                    placeholder={`Cari nama siswa...`}
-                    aria-label={`Cari nama siswa`}
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-4 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <span className="text-sm text-gray-500">
-                  Maksimal {LIMIT_SISWA} siswa per halaman
-                </span>
-              </div>
+          {error && (
+            <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {selectedKelas.id === 'unassigned-students' || selectedMonth ? (
+            siswaKelas.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+              Belum ada siswa yang terdaftar {selectedMonth ? 'di kelas ini.' : 'di kelas ini.'}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
@@ -409,13 +536,18 @@ export default function NilaiReport() {
                           </div>
                         </td>
                         <td className="p-4">
+                          {(() => {
+                            const hasReport = selectedPeriodReportIds.has(membership.siswa_id);
+                            return (
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            studentReportIds.has(membership.siswa_id)
+                            hasReport
                               ? 'bg-green-50 text-green-700'
                               : 'bg-gray-100 text-gray-600'
                           }`}>
-                            {studentReportIds.has(membership.siswa_id) ? 'Ada' : 'Belum ada'}
+                            {hasReport ? 'Ada' : 'Belum ada'}
                           </span>
+                            );
+                          })()}
                         </td>
                         <td className="p-4 text-center">
                           <button
@@ -431,37 +563,60 @@ export default function NilaiReport() {
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between border-t border-gray-100 p-4 text-sm text-gray-500">
-                <span>
-                  Menampilkan {filteredSiswa.length === 0 ? 0 : (studentPage - 1) * LIMIT_SISWA + 1}
-                  {' - '}
-                  {Math.min(studentPage * LIMIT_SISWA, filteredSiswa.length)}
-                  {' dari '}
-                  {filteredSiswa.length} siswa
-                </span>
-                <div className="flex items-center gap-1">
+            </div>
+            )
+          ) : loadingMonths ? (
+            <div className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white p-10 text-sm text-gray-500">
+              <LoaderCircle className="h-5 w-5 animate-spin" /> Memuat sesi pembelajaran...
+            </div>
+          ) : monthList.length === 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+              Belum ada sesi pembelajaran yang terdaftar untuk kelas ini.
+            </div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {monthList.map((month) => {
+                const members = new Set(siswaKelas.map((membership) => membership.siswa_id));
+                const reportIds = periodReportIds.get(month.label) || new Set();
+                const totalStudents = members.size;
+                const completedReports = [...members].filter((studentId) => reportIds.has(studentId)).length;
+                const completion = totalStudents ? (completedReports / totalStudents) * 100 : 0;
+
+                return (
                   <button
+                    key={month.key}
                     type="button"
-                    onClick={() => setStudentPage((page) => page - 1)}
-                    disabled={studentPage <= 1}
-                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => setSelectedMonth(month)}
+                    className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                   >
-                    Prev
+                    <div className="mb-5 flex items-start justify-between">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                        <CalendarDays className="h-6 w-6" />
+                      </span>
+                      <ChevronRight className="h-5 w-5 text-gray-400 transition group-hover:translate-x-1 group-hover:text-blue-600" />
+                    </div>
+                    <h2 className="text-lg font-bold capitalize text-gray-900">{month.label}</h2>
+                    <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
+                      <span className="flex items-center gap-1.5">
+                        <ClipboardCheck className="h-4 w-4" /> Laporan digenerate
+                      </span>
+                      <span className="font-semibold text-gray-700">{completedReports}/{totalStudents}</span>
+                    </div>
+                    <div
+                      className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"
+                      role="progressbar"
+                      aria-label={`Laporan ${month.label}`}
+                      aria-valuemin={0}
+                      aria-valuemax={totalStudents}
+                      aria-valuenow={completedReports}
+                    >
+                      <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${completion}%` }} />
+                    </div>
                   </button>
-                  <span className="px-3 py-1 font-semibold text-gray-700">
-                    {totalStudentPages ? `${studentPage} / ${totalStudentPages}` : '0'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStudentPage((page) => page + 1)}
-                    disabled={studentPage >= totalStudentPages}
-                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-          </div>
+                );
+              })}
+            </div>
+          )}
         </>
       ) : (
         <>

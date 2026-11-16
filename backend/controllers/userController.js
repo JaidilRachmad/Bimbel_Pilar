@@ -54,36 +54,11 @@ const createAccount = asyncHandler(async (req, res) => {
     if (typeof extraField !== "string" || extraField.trim() === "") {
       errors.push("Nama orang tua/wali wajib diisi untuk siswa.");
     }
-    if (!BULAN_INDONESIA.includes(bulanMulai)) {
-      errors.push("bulanMulai harus berupa nama bulan Indonesia yang valid.");
+    if (!isValidDate(tanggalMulaiBelajar || "")) {
+      errors.push("tanggalMulaiBelajar wajib berupa tanggal valid berformat YYYY-MM-DD.");
     }
-    if (!BULAN_INDONESIA.includes(bulanSelesai)) {
-      errors.push("bulanSelesai harus berupa nama bulan Indonesia yang valid.");
-    }
-    if (!Number.isInteger(tahunMulai) || tahunMulai < MIN_TAHUN_TAGIHAN || tahunMulai > MAX_TAHUN_TAGIHAN) {
-      errors.push(`tahunMulai harus berupa tahun ${MIN_TAHUN_TAGIHAN}-${MAX_TAHUN_TAGIHAN}.`);
-    }
-    if (!Number.isInteger(tahunSelesai) || tahunSelesai < MIN_TAHUN_TAGIHAN || tahunSelesai > MAX_TAHUN_TAGIHAN) {
-      errors.push(`tahunSelesai harus berupa tahun ${MIN_TAHUN_TAGIHAN}-${MAX_TAHUN_TAGIHAN}.`);
-    }
-    if (
-      Number.isInteger(tahunMulai)
-      && Number.isInteger(tahunSelesai)
-      && BULAN_INDONESIA.includes(bulanMulai)
-      && BULAN_INDONESIA.includes(bulanSelesai)
-      && tahunSelesai * 12 + BULAN_INDONESIA.indexOf(bulanSelesai)
-        < tahunMulai * 12 + BULAN_INDONESIA.indexOf(bulanMulai)
-    ) {
-      errors.push("Rentang bulan dan tahun selesai tidak boleh sebelum rentang mulai.");
-    }
-    if (
-      typeof nominal !== "number"
-      || !Number.isFinite(nominal)
-      || nominal <= 0
-      || nominal > MAX_NOMINAL_TAGIHAN
-      || String(nominal).split(".")[1]?.length > 2
-    ) {
-      errors.push("nominal wajib berupa angka positif maksimal 2 angka desimal.");
+    if (!PAKET_LIST.includes(paket)) {
+      errors.push(`paket wajib salah satu dari: ${PAKET_LIST.join(", ")}.`);
     }
     if (paket === "Tahunan" && !METODE_LIST.includes(metodePembayaran)) {
       errors.push(`metodePembayaran wajib salah satu dari: ${METODE_LIST.join(", ")} untuk paket Tahunan.`);
@@ -153,23 +128,6 @@ const updateUserData = asyncHandler(async (req, res) => {
   return sendSuccess(res, "Data profil pengguna berhasil diperbarui!", updatedProfile, 200);
 });
 
-const updateUserKelas = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { kelasId } = req.body ?? {};
-
-  const errors = [];
-  if (!UUID_PATTERN.test(id || "")) {
-    errors.push("ID pengguna tidak valid.");
-  }
-  if (!UUID_PATTERN.test(kelasId || "")) {
-    errors.push("kelasId wajib diisi dengan ID kelas yang valid.");
-  }
-  assertValid(errors);
-  const result = await userModel.updateUserKelas(id, kelasId);
-
-  return sendSuccess(res, "Kelas siswa berhasil diperbarui!", result, 200);
-});
-
 const getAllUsers = asyncHandler(async (req, res) => {
   const { role } = req.query; 
 
@@ -196,7 +154,6 @@ const deleteUserAccount = asyncHandler(async (req, res) => {
 module.exports = {
   updateAccessToken,
   updateUserData,
-  updateUserKelas,
   getAllUsers,
   createAccount,
   deleteUserAccount

@@ -1,5 +1,10 @@
-import { Printer, Download, ArrowLeft, X } from 'lucide-react';
+import { Printer, ArrowLeft } from 'lucide-react';
 import logoPilar from '../assets/logo.png';
+
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
 
 export default function EKwitansi({ isOpen, onClose, data }) {
   if (!isOpen || !data) return null;
@@ -7,28 +12,38 @@ export default function EKwitansi({ isOpen, onClose, data }) {
   const formatRupiah = (angka) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   };
+  const periode = `${MONTHS[Number(data.bulan) - 1] || '-'} ${data.tahun || ''}`;
 
   return (
-    <div className="fixed inset-0 bg-[#F8FAFC] z-50 overflow-y-auto print:bg-white print:static">
+    <div className="print-section fixed inset-0 bg-[#F8FAFC] z-50 overflow-y-auto print:bg-white print:static">
       
       {/* Container Utama */}
-      <div className="max-w-4xl mx-auto py-8 px-4 md:px-0 print:p-0">
+      <div className="max-w-4xl mx-auto py-8 px-4 md:px-0 print:p-0 print:max-w-none">
         
         {/* HEADER ATAS (Navigasi & Tombol) */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 print:hidden">
           <button onClick={onClose} className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-700 font-medium transition">
             <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Tagihan
           </button>
+
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => window.print()} 
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#1E3A8A] text-white rounded-lg text-sm font-semibold hover:bg-blue-900 transition shadow-sm"
+            >
+              <Printer className="w-4 h-4" /> Cetak / Simpan PDF
+            </button>
+          </div>
         </div>
 
         {/* JUDUL HALAMAN */}
         <h1 className="text-2xl font-bold text-[#1E3A8A] mb-4 print:hidden">Rincian Kwitansi Digital</h1>
 
         {/* KERTAS KWITANSI */}
-        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.05)] border border-gray-200 overflow-hidden print:border-none print:shadow-none">
+        <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.05)] border border-gray-200 overflow-hidden print:border-none print:shadow-none print:rounded-none">
           
           {/* HEADER BIRU */}
-          <div className="bg-[#1E3A8A] text-white px-8 py-6">
+          <div className="bg-[#1E3A8A] text-white px-8 py-6 print:bg-[#1E3A8A] print:text-white">
             <div className="flex items-center gap-5 mb-6">
               <div className="w-16 h-16 bg-white rounded-xl p-1 shrink-0 flex items-center justify-center">
                 <img src={logoPilar} alt="Logo" className="w-full h-full object-contain" />
@@ -64,7 +79,7 @@ export default function EKwitansi({ isOpen, onClose, data }) {
               </div>
               <div className="flex">
                 <span className="w-28 text-gray-500">Periode</span>
-                <span className="font-semibold text-gray-900">: {data.bulan_mulai} {data.tahun_mulai} - Pendaftaran {data.tahun_mulai ? (data.tahun_mulai + 1).toString().slice(-2) : ''}/{data.tahun_mulai ? (data.tahun_mulai + 2).toString().slice(-2) : ''}</span>
+                <span className="font-semibold text-gray-900">: {periode}</span>
               </div>
             </div>
 
@@ -79,12 +94,12 @@ export default function EKwitansi({ isOpen, onClose, data }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="px-4 py-3 text-gray-700">SPP {data.bulan_mulai} {data.tahun_mulai}</td>
+                    <td className="px-4 py-3 text-gray-700">SPP {periode}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{formatRupiah(data.nominal || data.total_pembayaran)}</td>
                   </tr>
                   {data.pendaftaran && (
                     <tr>
-                      <td className="px-4 py-3 text-gray-700">Pendaftaran T/A {data.tahun_mulai}/{data.tahun_mulai + 1} (Naik Kelas)</td>
+                      <td className="px-4 py-3 text-gray-700">Pembayaran SPP {data.tahun}</td>
                       <td className="px-4 py-3 text-right text-gray-700">{formatRupiah(data.pendaftaran)}</td>
                     </tr>
                   )}
