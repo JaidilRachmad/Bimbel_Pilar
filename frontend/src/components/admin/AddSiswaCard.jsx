@@ -116,12 +116,13 @@ export default function AddSiswaCard({
           </select>
         </label>
         {mode === 'create' && <fieldset className="grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2">
-          <legend className="px-1 text-sm font-semibold text-gray-700">Periode tagihan SPP</legend>
+          <legend className="px-1 text-sm font-semibold text-gray-700">Paket belajar</legend>
           <label className="block text-sm font-medium text-gray-700">
-            Bulan mulai
-            <select name="bulanMulai" value={form.bulanMulai} onChange={updateField} required className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100">
-              <option value="">Pilih bulan</option>
-              {MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
+            Paket
+            <select name="paket" value={form.paket} onChange={updateField} required className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100">
+              <option value="">Pilih paket</option>
+              <option value="Bulanan">Bulanan</option>
+              <option value="Tahunan">Tahunan</option>
             </select>
           </label>
           {form.paket === 'Tahunan' && (
