@@ -8,7 +8,7 @@ import { getAllUsers } from '../../services/userService';
 import { getKelasSessions } from '../../services/jadwalMateriService';
 import {
   ArrowLeft, Check, CheckCircle2, ChevronRight,
-  AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Sparkles, User, Users
+  AlertCircle, CalendarDays, ClipboardCheck, Edit3, Filter, LoaderCircle, Save, School, Search, Sparkles, User, Users
 } from 'lucide-react';
 
 const LIMIT_SISWA = 10;
@@ -465,7 +465,7 @@ export default function NilaiReport() {
         </>
       ) : !selectedSiswa ? (
         <>
-          {!selectedMonth && (
+          {!selectedMonth && selectedKelas.id !== 'unassigned-students' && (
             <button
               type="button"
               onClick={() => {
@@ -525,6 +525,20 @@ export default function NilaiReport() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex flex-col items-center justify-between gap-4 border-b border-gray-100 bg-gray-50 p-4 md:flex-row">
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchSiswa}
+                    onChange={(event) => handleSearchSiswa(event.target.value)}
+                    placeholder="Cari nama siswa..."
+                    aria-label="Cari nama siswa"
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
@@ -587,6 +601,34 @@ export default function NilaiReport() {
                   </tbody>
                 </table>
               </div>
+              <div className="flex items-center justify-between border-t border-gray-100 p-4 text-sm text-gray-500">
+                <span>
+                  {filteredSiswa.length === 0
+                    ? 'Menampilkan 0 siswa'
+                    : `Menampilkan ${(studentPage - 1) * LIMIT_SISWA + 1} - ${Math.min(studentPage * LIMIT_SISWA, filteredSiswa.length)} dari ${filteredSiswa.length} siswa`}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((currentPage) => currentPage - 1)}
+                    disabled={studentPage <= 1}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-3 py-1 font-semibold text-gray-700">
+                    {totalStudentPages ? `${studentPage} / ${totalStudentPages}` : '0'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((currentPage) => currentPage + 1)}
+                    disabled={totalStudentPages === 0 || studentPage >= totalStudentPages}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
             )
           ) : loadingMonths ? (
@@ -610,7 +652,11 @@ export default function NilaiReport() {
                   <button
                     key={month.key}
                     type="button"
-                    onClick={() => setSelectedMonth(month)}
+                    onClick={() => {
+                      setStudentPage(1);
+                      setSearchSiswa('');
+                      setSelectedMonth(month);
+                    }}
                     className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                   >
                     <div className="mb-5 flex items-start justify-between">
