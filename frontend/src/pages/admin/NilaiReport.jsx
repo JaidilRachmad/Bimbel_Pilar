@@ -7,8 +7,8 @@ import { getAllKelas } from '../../services/kelasService';
 import { getAllUsers } from '../../services/userService';
 import { getKelasSessions } from '../../services/jadwalMateriService';
 import {
-  ArrowLeft, Check, CheckCircle2, ChevronRight, Download,
-  AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Sparkles, User, Users
+  ArrowLeft, Check, CheckCircle2, ChevronRight,
+  AlertCircle, CalendarDays, ClipboardCheck, Edit3, Filter, LoaderCircle, Save, School, Search, Sparkles, User, Users
 } from 'lucide-react';
 
 const LIMIT_SISWA = 10;
@@ -31,7 +31,7 @@ function formatDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    : date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function getSessionPeriod(value) {
@@ -94,6 +94,7 @@ export default function NilaiReport() {
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthList, setMonthList] = useState([]);
+  const [monthSortOrder, setMonthSortOrder] = useState('desc');
   const [selectedSiswa, setSelectedSiswa] = useState(null);
   const [searchSiswa, setSearchSiswa] = useState('');
   const [studentPage, setStudentPage] = useState(1);
@@ -208,8 +209,7 @@ export default function NilaiReport() {
           if (period) periodsByKey.set(period.key, period);
         });
 
-        const periods = [...periodsByKey.values()]
-          .sort((left, right) => right.year - left.year || right.month - left.month);
+        const periods = [...periodsByKey.values()];
         const reports = await Promise.all(periods.map(async (period) => [
           period.label,
           await loadPeriodReportIds(period.label),
@@ -243,7 +243,7 @@ export default function NilaiReport() {
       setLoadingNilai(true);
       setError('');
       try {
-        const grades = await getStudentGrades(selectedSiswa.id);
+        const grades = await getStudentGrades(selectedSiswa.id, selectedMonth?.key);
         if (active) setNilaiList(grades);
       } catch (requestError) {
         if (active) {
@@ -259,7 +259,7 @@ export default function NilaiReport() {
     return () => {
       active = false;
     };
-  }, [selectedSiswa]);
+  }, [selectedSiswa, selectedMonth]);
 
   useEffect(() => {
     if (!selectedSiswa) return undefined;
@@ -320,7 +320,10 @@ export default function NilaiReport() {
     setLoadingAI(true);
     setStatusMessage({ type: '', text: '' });
     try {
-      const report = await generateStudentReport(selectedSiswa.id, { periode });
+      const report = await generateStudentReport(selectedSiswa.id, {
+        periode,
+        periodeKey: selectedMonth?.key,
+      });
       setCatatan(report.catatan_wali_kelas || '');
       setSaran(report.saran_pengembangan || '');
       setPeriode(report.periode || periode);
@@ -389,6 +392,11 @@ export default function NilaiReport() {
   const selectedPeriodReportIds = selectedMonth
     ? periodReportIds.get(selectedMonth.label) || new Set()
     : studentReportIds;
+  const sortedMonthList = [...monthList].sort((left, right) => (
+    monthSortOrder === 'desc'
+      ? right.year - left.year || right.month - left.month
+      : left.year - right.year || left.month - right.month
+  ));
   const hasReportableGrades = nilaiList.some((grade) => (
     grade.nilai !== null
     && grade.nilai !== undefined
@@ -457,7 +465,7 @@ export default function NilaiReport() {
         </>
       ) : !selectedSiswa ? (
         <>
-          {!selectedMonth && (
+          {!selectedMonth && selectedKelas.id !== 'unassigned-students' && (
             <button
               type="button"
               onClick={() => {
@@ -468,24 +476,40 @@ export default function NilaiReport() {
               <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kelas
             </button>
           )}
-          <div className="mb-6">
-            {selectedMonth && (
-              <button
-                type="button"
-                onClick={() => setSelectedMonth(null)}
-                className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
-              >
-                <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Bulan
-              </button>
+          <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              {selectedMonth && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonth(null)}
+                  className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-blue-600"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Bulan
+                </button>
+              )}
+              <h1 className="text-2xl font-bold text-gray-900">
+                {selectedMonth ? `${selectedKelas.nama_kelas} - ${selectedMonth.label}` : selectedKelas.nama_kelas}
+              </h1>
+              <p className="mt-1 text-gray-500">
+                {selectedMonth
+                  ? 'Pilih siswa yang terdaftar di sesi pembelajaran bulan ini.'
+                  : 'Pilih bulan untuk melihat siswa dan status laporan belajarnya.'}
+              </p>
+            </div>
+            {!selectedMonth && (
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                Urutkan bulan
+                <select
+                  value={monthSortOrder}
+                  onChange={(event) => setMonthSortOrder(event.target.value)}
+                  aria-label="Urutkan card bulan"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none transition focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="desc">Terbaru ke terlama</option>
+                  <option value="asc">Terlama ke terbaru</option>
+                </select>
+              </label>
             )}
-            <h1 className="text-2xl font-bold text-gray-900">
-              {selectedMonth ? `${selectedKelas.nama_kelas} - ${selectedMonth.label}` : selectedKelas.nama_kelas}
-            </h1>
-            <p className="mt-1 text-gray-500">
-              {selectedMonth
-                ? 'Pilih siswa yang terdaftar di sesi pembelajaran bulan ini.'
-                : 'Pilih bulan untuk melihat siswa dan status laporan belajarnya.'}
-            </p>
           </div>
 
           {error && (
@@ -501,6 +525,20 @@ export default function NilaiReport() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex flex-col items-center justify-between gap-4 border-b border-gray-100 bg-gray-50 p-4 md:flex-row">
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchSiswa}
+                    onChange={(event) => handleSearchSiswa(event.target.value)}
+                    placeholder="Cari nama siswa..."
+                    aria-label="Cari nama siswa"
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
@@ -563,6 +601,34 @@ export default function NilaiReport() {
                   </tbody>
                 </table>
               </div>
+              <div className="flex items-center justify-between border-t border-gray-100 p-4 text-sm text-gray-500">
+                <span>
+                  {filteredSiswa.length === 0
+                    ? 'Menampilkan 0 siswa'
+                    : `Menampilkan ${(studentPage - 1) * LIMIT_SISWA + 1} - ${Math.min(studentPage * LIMIT_SISWA, filteredSiswa.length)} dari ${filteredSiswa.length} siswa`}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((currentPage) => currentPage - 1)}
+                    disabled={studentPage <= 1}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-3 py-1 font-semibold text-gray-700">
+                    {totalStudentPages ? `${studentPage} / ${totalStudentPages}` : '0'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStudentPage((currentPage) => currentPage + 1)}
+                    disabled={totalStudentPages === 0 || studentPage >= totalStudentPages}
+                    className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
             )
           ) : loadingMonths ? (
@@ -575,7 +641,7 @@ export default function NilaiReport() {
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {monthList.map((month) => {
+              {sortedMonthList.map((month) => {
                 const members = new Set(siswaKelas.map((membership) => membership.siswa_id));
                 const reportIds = periodReportIds.get(month.label) || new Set();
                 const totalStudents = members.size;
@@ -586,7 +652,11 @@ export default function NilaiReport() {
                   <button
                     key={month.key}
                     type="button"
-                    onClick={() => setSelectedMonth(month)}
+                    onClick={() => {
+                      setStudentPage(1);
+                      setSearchSiswa('');
+                      setSelectedMonth(month);
+                    }}
                     className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
                   >
                     <div className="mb-5 flex items-start justify-between">
@@ -664,12 +734,12 @@ export default function NilaiReport() {
                 </div>
               </div>
             </div>
-            <button
+            {/* <button
               type="button"
               className="flex items-center gap-2 rounded-xl bg-[#1E3A8A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-900"
             >
               <Download className="h-4 w-4" /> Unduh Report
-            </button>
+            </button> */}
           </div>
 
           {error && (
@@ -686,38 +756,56 @@ export default function NilaiReport() {
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
-                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Pert.</th>
                     <th className="border-b border-gray-200 p-4 font-semibold">Tanggal</th>
-                    <th className="border-b border-gray-200 p-4 font-semibold">Mata Pelajaran</th>
-                    <th className="border-b border-gray-200 p-4 font-semibold">Materi Pokok</th>
+                    <th className="border-b border-gray-200 p-4 font-semibold">Sesi / Materi</th>
                     <th className="border-b border-gray-200 p-4 text-center font-semibold">Nilai</th>
-                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Status</th>
-                    <th className="border-b border-gray-200 p-4 font-semibold">Catatan</th>
+                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Rata-rata Kelas</th>
+                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Nilai Tertinggi</th>
+                    <th className="border-b border-gray-200 p-4 font-semibold">Keterangan Tentor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loadingNilai ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
+                    <tr><td colSpan="6" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
                   ) : nilaiList.length === 0 ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
-                  ) : nilaiList.map((item, index) => {
-                    const sesi = item.sesi_pembelajaran || {};
-                    const status = Number(item.nilai) < 80 ? 'Perlu ditingkatkan' : 'Baik';
+                    <tr><td colSpan="6" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
+                  ) : nilaiList.map((item) => {
+                    const sesi = Array.isArray(item.sesi_pembelajaran)
+                      ? item.sesi_pembelajaran[0]
+                      : item.sesi_pembelajaran;
+                    const nilaiTertinggiNama = Array.isArray(item.nilai_tertinggi_nama)
+                      ? item.nilai_tertinggi_nama
+                      : [];
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50">
-                        <td className="p-4 text-center text-sm font-bold text-gray-500">{index + 1}</td>
-                        <td className="whitespace-nowrap p-4 text-sm text-gray-600">{formatDate(sesi.tanggal || item.created_at)}</td>
-                        <td className="p-4 text-sm font-bold text-gray-800">{sesi.mata_pelajaran || '-'}</td>
-                        <td className="p-4 text-sm text-gray-600">{sesi.materi || '-'}</td>
-                        <td className="p-4 text-center">
-                          <span className="inline-block rounded-lg bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">{item.nilai}</span>
+                        <td className="whitespace-nowrap p-4 text-sm text-gray-600">{formatDate(sesi?.tanggal || item.created_at)}</td>
+                        <td className="p-4">
+                          <p className="text-sm font-bold text-gray-800">{sesi?.mata_pelajaran || '-'}</p>
+                          <p className="mt-0.5 text-xs text-gray-500">{sesi?.materi || '-'}</p>
                         </td>
                         <td className="p-4 text-center">
-                          <span className={`inline-block rounded px-2 py-1 text-xs font-bold ${status === 'Baik' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                            {status}
-                          </span>
+                          <span className={`inline-block rounded-lg px-3 py-1 text-sm font-bold ${
+                            Number(item.nilai) >= 80
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>{item.nilai}</span>
                         </td>
-                        <td className="p-4 text-sm italic text-gray-600">{item.keterangan || '-'}</td>
+                        <td className="p-4 text-center text-sm font-medium text-gray-600">
+                          {item.rata_rata_kelas ?? '-'}
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <span className="inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-bold text-orange-700">
+                              {item.nilai_tertinggi ?? '-'}
+                            </span>
+                            {nilaiTertinggiNama.length > 0 && (
+                              <span className="text-[10px] font-medium text-orange-700">
+                                {nilaiTertinggiNama.join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="max-w-xs p-4 text-sm italic text-gray-600">"{item.keterangan || '-'}"</td>
                       </tr>
                     );
                   })}
