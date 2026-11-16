@@ -31,6 +31,11 @@ function getReportMonthKey(report) {
   return getMonthKey(report.created_at);
 }
 
+function getGradeTimestamp(grade) {
+  const timestamp = Date.parse(grade.tanggalSort || '');
+  return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
+}
+
 export default function LaporanProgres() {
   const [laporanProgresSiswa, setLaporanProgresSiswa] = useState([]);
   const [laporanBulanan, setLaporanBulanan] = useState([]);
@@ -77,7 +82,7 @@ export default function LaporanProgres() {
             tanggalSort: dateValue,
             monthKey: getMonthKey(dateValue),
           };
-        }).sort((a, b) => new Date(b.tanggalSort) - new Date(a.tanggalSort));
+        }).sort((a, b) => getGradeTimestamp(a) - getGradeTimestamp(b));
 
         setLaporanProgresSiswa(mappedGrades);
         setLaporanBulanan(laporanList.map((report) => ({
@@ -307,7 +312,7 @@ export default function LaporanProgres() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Pertemuan ke-</th>
+                <th className="p-4 font-semibold border-b border-gray-200 text-center">Pertemuan Ke -</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Tanggal</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Sesi / Materi</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai</th>
@@ -319,7 +324,7 @@ export default function LaporanProgres() {
             <tbody className="divide-y divide-gray-200">
               {selectedGrades.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition">
-                  <td className="p-4 text-center text-sm text-gray-600">{index + 1}</td>
+                  <td className="p-4 text-center text-sm font-medium text-gray-600">{index + 1}</td>
                   <td className="p-4 text-sm text-gray-600 whitespace-nowrap">{item.tanggal}</td>
                   <td className="p-4">
                     <p className="text-sm font-bold text-gray-800">{item.mapel}</p>
