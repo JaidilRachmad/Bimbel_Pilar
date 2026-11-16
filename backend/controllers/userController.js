@@ -8,6 +8,7 @@ const { asyncHandler, sendSuccess } = require("../utils/http");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const PAKET_LIST = Object.freeze(["Bulanan", "Tahunan"]);
+const METODE_LIST = Object.freeze(["Transfer", "Cash"]);
 
 function isValidDate(value) {
   if (!DATE_PATTERN.test(value)) return false;
@@ -28,6 +29,7 @@ const createAccount = asyncHandler(async (req, res) => {
     kelasId,
     tanggalMulaiBelajar,
     paket,
+    metodePembayaran,
   } = req.body ?? {};
 
   if (!role || !nama || !noTelp) {
@@ -58,9 +60,12 @@ const createAccount = asyncHandler(async (req, res) => {
     if (!PAKET_LIST.includes(paket)) {
       errors.push(`paket wajib salah satu dari: ${PAKET_LIST.join(", ")}.`);
     }
+    if (paket === "Tahunan" && !METODE_LIST.includes(metodePembayaran)) {
+      errors.push(`metodePembayaran wajib salah satu dari: ${METODE_LIST.join(", ")} untuk paket Tahunan.`);
+    }
 
     assertValid(errors);
-    tagihanSpp = { tanggalMulaiBelajar, paket };
+    tagihanSpp = { tanggalMulaiBelajar, paket, metodePembayaran };
   }
 
   const rawToken = tokenService.generateRandomToken();
