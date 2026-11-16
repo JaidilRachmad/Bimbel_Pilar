@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../services/api';
-import { ArrowLeft, BookOpen, Download, FileText, TrendingUp, MessageSquare, ChevronDown } from 'lucide-react';
+import { getStudentGrades } from '../../services/laporanService';
+import logo from '../../assets/logo.png';
+import { ArrowLeft, BookOpen, Download, FileText, TrendingUp, MessageSquare } from 'lucide-react';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -29,6 +31,11 @@ function getReportMonthKey(report) {
   return getMonthKey(report.created_at);
 }
 
+function getGradeTimestamp(grade) {
+  const timestamp = Date.parse(grade.tanggalSort || '');
+  return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
+}
+
 export default function LaporanProgres() {
   const [laporanProgresSiswa, setLaporanProgresSiswa] = useState([]);
   const [laporanBulanan, setLaporanBulanan] = useState([]);
@@ -42,12 +49,12 @@ export default function LaporanProgres() {
     async function loadProgress() {
       try {
         const [nilaiResponse, laporanResponse] = await Promise.all([
-          api.get('/nilai/me'),
+          getStudentGrades(),
           api.get('/laporan/me'),
         ]);
         if (!active) return;
 
-        const nilaiList = nilaiResponse.data.data.data;
+        const nilaiList = nilaiResponse;
         const laporanList = laporanResponse.data.data;
         const mappedGrades = nilaiList.map((nilai) => {
           const sesi = Array.isArray(nilai.sesi_pembelajaran)
@@ -71,10 +78,11 @@ export default function LaporanProgres() {
             nilaiTertinggi: nilai.nilai_tertinggi ?? '—',
             nilaiTertinggiNama: Array.isArray(nilai.nilai_tertinggi_nama) ? nilai.nilai_tertinggi_nama : [],
             keterangan: nilai.keterangan || '—',
+            kelas: sesi?.kelas?.nama_kelas || '—',
             tanggalSort: dateValue,
             monthKey: getMonthKey(dateValue),
           };
-        }).sort((a, b) => new Date(b.tanggalSort) - new Date(a.tanggalSort));
+        }).sort((a, b) => getGradeTimestamp(a) - getGradeTimestamp(b));
 
         setLaporanProgresSiswa(mappedGrades);
         setLaporanBulanan(laporanList.map((report) => ({
@@ -150,7 +158,7 @@ export default function LaporanProgres() {
     <DashboardLayout>
       <style>{`
         @media print {
-          @page { size: landscape; margin: 12mm; }
+          @page { size: A4 portrait; margin: 12mm; }
           html, body, #root {
             width: auto !important;
             height: auto !important;
@@ -170,8 +178,23 @@ export default function LaporanProgres() {
             background: #fff !important;
           }
           .monthly-report-print table { width: 100% !important; }
+          .monthly-report-print .print-report-header { display: flex !important; }
+          .monthly-report-print .print-only { display: block !important; }
+          .monthly-report-print .report-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          .monthly-report-print th,
+          .monthly-report-print td {
+            border: 1px solid #9ca3af !important;
+            padding: 5px !important;
+            font-size: 9px !important;
+          }
+          .monthly-report-print p { font-size: 10px !important; }
           .monthly-report-print tr { break-inside: avoid; }
         }
+        .print-report-header, .print-only { display: none; }
       `}</style>
       {/* Header Halaman */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -246,6 +269,23 @@ export default function LaporanProgres() {
       ) : (
         <>
       <div className="monthly-report-print">
+      <div className="print-report-header mb-4 items-center border-b-2 border-gray-800 pb-3">
+        <img src={logo} alt="Logo Bimbel Pilar Cendekia" className="mr-4 h-20 w-20 object-contain" />
+        <div className="flex-1 text-center">
+          <h1 className="text-xl font-bold tracking-wide text-gray-900">BIMBEL PILAR CENDEKIA</h1>
+          <p className="mt-1 text-[10px] text-gray-700">
+            Dukuh MJ I / 1403 Gedongkiwo Mantrijeron RT/RW 73/15<br />
+            Kota Yogyakarta 55142
+          </p>
+          <p className="text-[10px] font-semibold text-gray-700">No. WA: 0895-3773-67903 | PilarCendekia.com</p>
+          <h2 className="mt-3 text-base font-bold">Laporan Progres Perkembangan Belajar</h2>
+          <div className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 text-left text-[10px]">
+            <span>Nama Siswa</span><span>: {laporanBulanan.find((report) => report.monthKey === selectedMonth)?.siswa_profile?.nama || 'Siswa'}</span>
+            <span>Kelas</span><span>: {selectedGrades[0]?.kelas || '—'}</span>
+            <span>Periode</span><span>: {selectedPeriod}</span>
+          </div>
+        </div>
+      </div>
       <h2 className="mb-4 hidden text-xl font-bold text-gray-900 print:block">
         Laporan Progres Belajar - {selectedPeriod}
       </h2>
@@ -258,40 +298,37 @@ export default function LaporanProgres() {
       </button>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-t-2xl border border-gray-200 border-b-0 flex justify-between items-center">
+      <div className="report-card bg-white p-4 rounded-t-2xl border border-gray-200 border-b-0 flex justify-between items-center">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
           <FileText className="w-5 h-5 text-blue-600" />
           Riwayat Akademik {selectedPeriod}
         </div>
         
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition">
-            Semua Mapel <ChevronDown className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
       {/* Tabel Data */}
-      <div className="bg-white border border-gray-200 rounded-b-2xl overflow-hidden shadow-sm mb-8">
+      <div className="report-card bg-white border border-gray-200 rounded-b-2xl overflow-hidden shadow-sm mb-8">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                <th className="p-4 font-semibold border-b border-gray-200 text-center">Pertemuan Ke -</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Tanggal</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Sesi / Materi</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai Saya</th>
+                <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Rata-rata Kelas</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai Tertinggi</th>
-                <th className="p-4 font-semibold border-b border-gray-200">Keterangan Guru</th>
+                <th className="p-4 font-semibold border-b border-gray-200">Keterangan Tentor</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {selectedGrades.map((item) => (
+              {selectedGrades.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50 transition">
+                  <td className="p-4 text-center text-sm font-medium text-gray-600">{index + 1}</td>
                   <td className="p-4 text-sm text-gray-600 whitespace-nowrap">{item.tanggal}</td>
                   <td className="p-4">
                     <p className="text-sm font-bold text-gray-800">{item.mapel}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{item.materi}</p>
+                    <p className="text-xs text-gray-500">{item.materi}</p>
                   </td>
                   <td className="p-4 text-center">
                     <span className={`inline-block px-3 py-1 rounded-lg font-bold text-sm ${item.nilaiSaya >= 80 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -323,7 +360,7 @@ export default function LaporanProgres() {
       </div>
 
       {/* Area Catatan Bawah (Deskripsi & Saran) */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="report-card grid md:grid-cols-2 gap-6">
         
         {/* Kartu Deskripsi */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">

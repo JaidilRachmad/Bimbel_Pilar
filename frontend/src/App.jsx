@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { GuestRoute, ProtectedRoute } from './components/RouteGuards'
 import SppBlocker from './components/SppBlocker';
-import LaporanProgres from './pages/siswa/LaporanProgres';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginToken = lazy(() => import('./pages/LoginToken'))
@@ -72,7 +71,7 @@ export default function App() {
 
               <Route path="/siswa/laporan" element={
                 <SppBlocker>
-                  <LaporanProgres />
+                  <NilaiSiswa />
                 </SppBlocker>
               } />
             </Route>
