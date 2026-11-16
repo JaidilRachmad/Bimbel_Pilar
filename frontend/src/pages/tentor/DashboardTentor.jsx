@@ -30,7 +30,7 @@ import {
   X,
 } from 'lucide-react'
 
-const MAPEL_TABS = ['Matematika', 'IPA', 'Bahasa Indonesia']
+const MAPEL_TABS = ['Matematika', 'IPA', 'Bahasa Indonesia', 'Bahasa Inggris']
 const KONVERSI_NILAI = { A: 100, B: 90, C: 80, D: 70, E: 60 }
 const EMPTY_SESSION = {
   materi: '',

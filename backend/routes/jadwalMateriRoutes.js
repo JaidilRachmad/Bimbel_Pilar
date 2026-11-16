@@ -8,6 +8,7 @@
 const express = require("express");
 const JadwalMateriController = require("../controllers/jadwalMateriController");
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const checkSpp = require("../middleware/checkSpp");
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.use(authenticateToken);
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/me", authorizeRoles("siswa"), JadwalMateriController.getMyJadwalSiswa);
+router.get("/me", authorizeRoles("siswa"), checkSpp, JadwalMateriController.getMyJadwalSiswa);
 
 /**
  * @swagger
@@ -45,7 +46,7 @@ router.get("/:id/download", authorizeRoles("tentor", "siswa"), JadwalMateriContr
  *     tags: [Jadwal & Materi]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/", authorizeRoles("tentor"), JadwalMateriController.getAll);
+router.get("/", authorizeRoles("tentor", "admin"), JadwalMateriController.getAll);
 router.post("/", authorizeRoles("tentor"), JadwalMateriController.create);
 
 router.get("/:id", authorizeRoles("tentor"), JadwalMateriController.getById);

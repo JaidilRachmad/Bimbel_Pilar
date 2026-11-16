@@ -30,10 +30,10 @@ const menuByRole = {
 };
 
 const portalByRole = {
-  admin: 'Admin Panel',
-  tentor: 'Teacher Portal',
-  siswa: 'Student Portal',
-};
+  admin: 'Admin Portal',
+  tentor: 'Tentor Portal',
+  siswa: 'Siswa Portal',
+};  
 
 export default function Sidebar({ role }) {
   const location = useLocation();

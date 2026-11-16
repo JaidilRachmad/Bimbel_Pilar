@@ -1,12 +1,17 @@
 import api from './api';
 
-export async function generateStudentReport(siswaId, { periode } = {}) {
-  const { data } = await api.post(`/laporan/generate/${siswaId}`, { periode });
+export async function generateStudentReport(siswaId, { periode, periodeKey } = {}) {
+  const { data } = await api.post(`/laporan/generate/${siswaId}`, {
+    periode,
+    periode_key: periodeKey,
+  });
   return data.data;
 }
 
-export async function getStudentGrades(siswaId) {
-  const { data } = await api.get('/nilai', { params: { siswa_id: siswaId, limit: 100 } });
+export async function getStudentGrades(siswaId, periodeKey) {
+  const { data } = await api.get(`/nilai/siswa/${siswaId}`, {
+    params: { periode: periodeKey, limit: 100 },
+  });
   return data.data.data;
 }
 

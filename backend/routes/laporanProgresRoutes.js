@@ -9,6 +9,7 @@
 const express = require("express");
 const LaporanProgresController = require("../controllers/laporanProgresController");
 const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const checkSpp = require("../middleware/checkSpp");
 
 const router = express.Router();
 
@@ -23,7 +24,7 @@ router.use(authenticateToken);
  *     tags: [Laporan Progres]
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/me", authorizeRoles("siswa"), LaporanProgresController.getMyLaporan);
+router.get("/me", authorizeRoles("siswa"), checkSpp, LaporanProgresController.getMyLaporan);
 
 /**
  * @swagger
@@ -49,6 +50,9 @@ router.get("/me", authorizeRoles("siswa"), LaporanProgresController.getMyLaporan
  *               periode:
  *                 type: string
  *                 example: "April 2026"
+ *               periode_key:
+ *                 type: string
+ *                 example: "2026-04"
  *     responses:
  *       200: { description: Laporan berhasil digenerate }
  *       400: { description: siswaId tidak valid }

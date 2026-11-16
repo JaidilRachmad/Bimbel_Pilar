@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { GuestRoute, ProtectedRoute } from './components/RouteGuards'
+import SppBlocker from './components/SppBlocker';
+import LaporanProgres from './pages/siswa/LaporanProgres';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginToken = lazy(() => import('./pages/LoginToken'))
@@ -60,8 +62,19 @@ export default function App() {
 
             <Route element={<ProtectedRoute roles={['siswa']} />}>
               <Route path="/siswa" element={<DashboardSiswa />} />
-              <Route path="/siswa/nilai" element={<NilaiSiswa />} />
               <Route path="/siswa/spp" element={<TagihanSpp />} />
+              
+              <Route path="/siswa/nilai" element={
+                <SppBlocker>
+                  <NilaiSiswa />
+                </SppBlocker>
+              } />
+
+              <Route path="/siswa/laporan" element={
+                <SppBlocker>
+                  <LaporanProgres />
+                </SppBlocker>
+              } />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

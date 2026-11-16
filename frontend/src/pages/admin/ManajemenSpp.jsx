@@ -25,10 +25,19 @@ export default function ManajemenSpp() {
   const fetchTagihan = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/tagihan-spp');
-      const rawData = response.data;
-      const fetchedItems = rawData?.data?.data || rawData?.data || rawData || [];
-      
+      // Ambil semua halaman (backend default 10 per halaman, maksimal 100)
+      const fetchedItems = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const response = await api.get('/tagihan-spp', { params: { page: currentPage, limit: 100 } });
+        const rawData = response.data;
+        const pageItems = rawData?.data?.data || rawData?.data || rawData || [];
+        fetchedItems.push(...(Array.isArray(pageItems) ? pageItems : []));
+        totalPages = rawData?.data?.meta?.total_pages || 1;
+        currentPage += 1;
+      } while (currentPage <= totalPages);
+
       const mappedData = fetchedItems.map((item, index) => {
         let metodeTersimpan = 'Transfer';
         let tanggalTersimpan = '-';
@@ -48,7 +57,8 @@ export default function ManajemenSpp() {
           ...item,
           metode_pembayaran: metodeTersimpan,
           tanggal_pembayaran: tanggalTersimpan,
-          kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || (index % 2 === 0 ? 'Kelas 6 SD' : 'Kelas 7 SMP')
+          // MENGHAPUS DATA DUMMY KELAS (Menggunakan data asli dari database)
+          kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || '-'
         };
       });
 
@@ -93,9 +103,14 @@ export default function ManajemenSpp() {
     }
   };
 
-  const handleHapus = (id) => {
-    if(window.confirm("Yakin ingin menghapus tagihan ini?")) {
-       setDataSpp(dataSpp.filter(spp => spp.id !== id));
+  const handleHapus = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus tagihan ini?")) return;
+
+    try {
+      await api.delete(`/tagihan-spp/${id}`);
+      fetchTagihan();
+    } catch (error) {
+      alert(error.response?.data?.message || "Gagal menghapus tagihan");
     }
   };
 
@@ -118,7 +133,7 @@ export default function ManajemenSpp() {
       fetchTagihan(); 
     } catch (error) {
       console.error(error);
-      alert("Gagal menyimpan tanggal. (Pastikan endpoint backend sudah dibuat)");
+      alert(error.response?.data?.message || "Gagal menyimpan tanggal.");
     } finally {
       setIsSaving(false);
     }
@@ -275,7 +290,7 @@ export default function ManajemenSpp() {
                                     {siswa.tagihan.map((spp) => (
                                       <tr key={spp.id} className="hover:bg-gray-50">
                                         <td className="p-3 text-sm font-medium text-gray-800">
-                                          {spp.bulan_mulai} {spp.tahun_mulai}
+                                          {new Date(spp.tahun, spp.bulan - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                                         </td>
                                         <td className="p-3 text-sm text-gray-600">
                                           Rp {spp.nominal ? spp.nominal.toLocaleString('id-ID') : 0}
@@ -305,7 +320,7 @@ export default function ManajemenSpp() {
                                           </select>
                                         </td>
                                         
-                                        {/* KOLOM AKSI (TANPA TOMBOL PRINT) */}
+                                        {/* KOLOM AKSI */}
                                         <td className="p-3">
                                           <div className="flex items-center justify-center gap-1.5">
                                             

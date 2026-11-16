@@ -8,7 +8,6 @@ const supabase = require("../config/supabaseClient");
 // ======================= VALIDASI INPUT =======================
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BULAN_PATTERN = /^[A-Za-z0-9 ]+$/; // Contoh: "Juni 2026"
 const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "status"]);
 
 function assertValid(errors) {
@@ -50,14 +49,9 @@ function validateBody(body) {
     errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
     }
 
-    let bulan = "";
-    if (typeof body.bulan !== "string" || body.bulan.trim() === "") {
-        errors.push("bulan wajib diisi");
-    } else {
-        bulan = body.bulan.trim();
-        if (!BULAN_PATTERN.test(bulan)) {
-            errors.push("Format bulan tidak valid");
-        }
+    const bulan = parsePositiveInt(String(body.bulan), NaN);
+    if (!Number.isInteger(bulan) || bulan < 1 || bulan > 12) {
+        errors.push("bulan wajib berupa angka 1 sampai 12");
     }
 
     const tahun = parsePositiveInt(String(body.tahun), NaN);
@@ -89,7 +83,7 @@ function validateListQuery(query) {
 
     let status;
     if (query.status !== undefined) {
-        status = query.status.trim().toUpperCase();
+        status = query.status.trim();
         if (!["Belum Bayar", "Lunas"].includes(status)) errors.push("Filter status tidak valid");
     }
 
@@ -185,10 +179,7 @@ const TagihanSppController = {
         if (errorInvoice) throw AppError.internal("Gagal membuat invoice");
 
         // 4. Update status tagihan_spp menjadi Lunas
-        await TagihanSppModel.update(id, { 
-            ...tagihan, 
-            status: 'Lunas' 
-        });
+        await TagihanSppModel.update(id, { status: 'Lunas' });
 
         return sendSuccess(res, 200, { 
             message: "Pembayaran berhasil dikonfirmasi", 

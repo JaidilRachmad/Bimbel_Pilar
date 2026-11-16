@@ -100,12 +100,12 @@ function validateListQuery(query) {
 const JadwalMateriController = {
     getAll: asyncHandler(async (req, res) => {
         const query = validateListQuery(req.query);
-        if (query.tentor_id && query.tentor_id !== req.user.id) {
+        if (req.user.role === "tentor" && query.tentor_id && query.tentor_id !== req.user.id) {
             throw AppError.forbidden("Anda hanya dapat melihat jadwal yang Anda ampu.");
         }
         const { items, meta } = await JadwalMateriModel.getPaginated({
             ...query,
-            tentor_id: req.user.id,
+            tentor_id: req.user.role === "tentor" ? req.user.id : query.tentor_id,
         });
         return sendSuccess(res, 200, { data: items, meta });
     }),
