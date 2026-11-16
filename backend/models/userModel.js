@@ -111,6 +111,22 @@ class UserModel {
         if (tagihanError) {
           throw AppError.internal(`Gagal membuat tagihan SPP siswa: ${tagihanError.message}`);
         }
+
+        if (effectivePaket === "Tahunan") {
+          const paidAt = new Date().toISOString().split("T")[0];
+          const invoices = (insertedBills || []).map((bill, index) => ({
+            tagihan_id: bill.id,
+            nomor_invoice: `INV/${bill.tahun}/${String(bill.bulan).padStart(2, "0")}/${Date.now()}${index}`,
+            tanggal_pembayaran: paidAt,
+            total_pembayaran: bill.nominal,
+            metode_pembayaran: tagihanSpp.metodePembayaran,
+            keterangan: "Pembayaran SPP tahunan",
+          }));
+          const { error: invoiceError } = await supabase.from("invoice_pembayaran").insert(invoices);
+          if (invoiceError) {
+            throw AppError.internal(`Gagal membuat invoice SPP tahunan: ${invoiceError.message}`);
+          }
+        }
       } catch (error) {
         const rollbackErrors = await rollbackSiswaCreation(userId);
         const rollbackMessage = rollbackErrors.length
