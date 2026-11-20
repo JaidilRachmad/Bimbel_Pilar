@@ -4,7 +4,7 @@
  * Tugas: baca request -> validasi format input -> panggil model -> kirim response.
  */
 const LaporanProgresModel = require("../models/laporanProgresModel");
-const geminiService = require("../services/geminiService");
+const aiReportService = require("../services/aiReportService");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
@@ -196,8 +196,8 @@ const LaporanProgresController = {
         const currentPeriod = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" });
         const periode = requestedPeriode || currentPeriod;
 
-        // Panggil Gemini AI
-        const aiResult = await geminiService.generateStudentProgressReport({
+        // Panggil AI untuk menghasilkan laporan
+        const aiResult = await aiReportService.generateStudentProgressReport({
             student: studentData,
             grades,
             periode,
