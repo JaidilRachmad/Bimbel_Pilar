@@ -185,6 +185,7 @@ class LaporanProgresModel {
             .select(`
                 id,
                 nilai,
+                tipe_nilai,
                 keterangan,
                 created_at,
                 sesi_pembelajaran:sesi_id (
@@ -217,6 +218,7 @@ class LaporanProgresModel {
             grades: filteredNilaiList.map((n) => ({
                 id: n.id,
                 nilai: n.nilai,
+                tipe_nilai: n.tipe_nilai,
                 keterangan: n.keterangan,
                 mata_pelajaran: n.sesi_pembelajaran?.mata_pelajaran || "Mata Pelajaran",
                 materi: n.sesi_pembelajaran?.materi || "",
