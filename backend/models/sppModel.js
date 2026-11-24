@@ -1,32 +1,19 @@
 "use strict";
-/**
- * MODEL (MVC) — Laporan Progres Belajar
- * Tugas: Berinteraksi dengan database Supabase, aturan bisnis, dan query data laporan progres.
- */
+
 const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
-const TABLE = "laporan_progres";
-const COLUMNS = `
-    id,
-    siswa_id,
-    periode,
-    catatan_wali_kelas,
-    saran_pengembangan,
-    nilai_id,
-    created_at,
-    updated_at,
-    siswa_profile:siswa_id (id, nama),
-    penilaian_siswa:nilai_id (id, nilai, keterangan)
-`;
-const NOT_FOUND = "Data laporan progres belajar tidak ditemukan";
+const TABLE = "tagihan_spp";
+const COLUMNS = "id, siswa_id, nominal, status, bulan, tahun, tanggal_jatuh_tempo, created_at, updated_at, siswa_profile(nama, nama_wali, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
+const NOT_FOUND = "Tagihan SPP tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
     "siswa_id",
-    "periode",
-    "catatan_wali_kelas",
-    "saran_pengembangan",
-    "nilai_id"
+    "nominal",
+    "status",
+    "tanggal_jatuh_tempo",
+    "bulan",
+    "tahun",
 ]);
 
 function pickWritable(input = {}) {
@@ -38,18 +25,18 @@ function pickWritable(input = {}) {
     return out;
 }
 
-class LaporanProgresModel {
+class TagihanSppModel {
     static WRITABLE_FIELDS = WRITABLE_FIELDS;
 
-    // Admin & Siswa: Mengambil data dengan paginasi dan filter opsional
-    static async getPaginated({ page, limit, siswa_id }) {
+    static async getPaginated({ page, limit, status }) {
         const offset = (page - 1) * limit;
         let query = supabase.from(TABLE).select(COLUMNS, { count: "exact" });
         
-        if (siswa_id) query = query.eq("siswa_id", siswa_id);
+        if (status) query = query.eq("status", status);
 
         const { data, error, count } = await query
-            .order("created_at", { ascending: false })
+            .order("tahun", { ascending: false })
+            .order("bulan", { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) throw error;
@@ -59,7 +46,7 @@ class LaporanProgresModel {
         };
     }
 
-    // Mengambil data berdasarkan ID (untuk detail / unduh laporan)
+    // ... (Fungsi getById, create, update, remove, getBySiswaId biarkan sama seperti aslinya) ...
     static async getById(id) {
         const { data, error } = await supabase.from(TABLE).select(COLUMNS).eq("id", id).maybeSingle();
         if (error) throw error;
@@ -67,60 +54,48 @@ class LaporanProgresModel {
         return data;
     }
 
-    // Siswa: Mengambil daftar laporan miliknya sendiri
     static async getBySiswaId(siswaId) {
         const { data, error } = await supabase
             .from(TABLE)
             .select(COLUMNS)
             .eq("siswa_id", siswaId)
-            .order("created_at", { ascending: false });
+            .order("tahun", { ascending: false })
+            .order("bulan", { ascending: false });
 
         if (error) throw error;
         return data;
     }
 
-    // Admin: Membuat laporan progres baru
     static async create(input) {
-        const payload = {
-            ...pickWritable(input),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        };
+        const payload = { ...pickWritable(input), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         const { data, error } = await supabase.from(TABLE).insert(payload).select(COLUMNS).single();
         if (error) throw error;
         return data;
     }
 
-    // Admin: Memperbarui laporan progres
     static async update(id, input) {
-        const payload = {
-            ...pickWritable(input),
-            updated_at: new Date().toISOString(),
-        };
-        const { data, error } = await supabase
-            .from(TABLE)
-            .update(payload)
-            .eq("id", id)
-            .select(COLUMNS)
-            .maybeSingle();
-
+        const payload = { ...pickWritable(input), updated_at: new Date().toISOString() };
+        const { data, error } = await supabase.from(TABLE).update(payload).eq("id", id).select(COLUMNS).maybeSingle();
         if (error) throw error;
         if (!data) throw AppError.notFound(NOT_FOUND);
         return data;
     }
 
-    // Admin: Menghapus laporan progres
-    static async remove(id) {
+    static async updateInvoiceDate(tagihanId, tanggal_pembayaran) {
         const { data, error } = await supabase
-            .from(TABLE)
-            .delete()
-            .eq("id", id)
-            .select("id")
-            .maybeSingle();
+            .from('invoice_pembayaran')
+            .update({ tanggal_pembayaran: tanggal_pembayaran })
+            .eq('tagihan_id', tagihanId)
+            .select().single();
+        if (error) throw error;
+        return data;
+    }
 
+    static async remove(id) {
+        const { data, error } = await supabase.from(TABLE).delete().eq("id", id).select("id").maybeSingle();
         if (error) throw error;
         if (!data) throw AppError.notFound(NOT_FOUND);
     }
 }
 
-module.exports = LaporanProgresModel;
+module.exports = TagihanSppModel;
