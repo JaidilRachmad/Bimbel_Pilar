@@ -7,10 +7,11 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 const TABLE = "penilaian_siswa";
-const COLUMNS = "id, sesi_id, siswa_id, nilai, keterangan, created_at";
+const COLUMNS = "id, sesi_id, siswa_id, nilai, tipe_nilai, keterangan, created_at";
+const COLUMNS_WITH_SESSION = `${COLUMNS}, sesi_pembelajaran:sesi_id (kelas_id, mata_pelajaran, materi, tanggal, jam_mulai, jam_selesai, kelas:kelas_id (nama_kelas, jenjang))`;
 const NOT_FOUND = "Data penilaian siswa tidak ditemukan";
 
-const WRITABLE_FIELDS = Object.freeze(["sesi_id", "siswa_id", "nilai", "keterangan"]);
+const WRITABLE_FIELDS = Object.freeze(["sesi_id", "siswa_id", "nilai", "tipe_nilai", "keterangan"]);
 
 function pickWritable(input = {}) {
     const out = {};
