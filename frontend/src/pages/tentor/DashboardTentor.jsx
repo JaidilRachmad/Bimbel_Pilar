@@ -80,6 +80,20 @@ function toGradeNumber(value) {
   return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null
 }
 
+function getGradeType(value) {
+  const normalized = String(value ?? '').trim().toUpperCase()
+  return Object.hasOwn(KONVERSI_NILAI, normalized) ? 'huruf' : 'angka'
+}
+
+function gradeToDisplayValue(grade) {
+  if (!grade) return ''
+  if (grade.tipe_nilai === 'huruf') {
+    return Object.entries(KONVERSI_NILAI)
+      .find(([, number]) => number === Number(grade.nilai))?.[0] || String(grade.nilai)
+  }
+  return String(grade.nilai)
+}
+
 const inputClass =
   'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
 
@@ -211,7 +225,8 @@ export default function DashboardTentor() {
           return {
             siswa_id: studentId,
             nama: getStudentName(enrollment),
-            nilai: grade ? String(grade.nilai) : '',
+            nilai: gradeToDisplayValue(grade),
+            tipe_nilai: grade?.tipe_nilai || null,
             keterangan: grade?.keterangan || '',
             gradeId: grade?.id || null,
           }
@@ -394,6 +409,7 @@ export default function DashboardTentor() {
       sesi_id: sessionForNilai.id,
       siswa_id: row.siswa_id,
       nilai: numericGrade,
+      tipe_nilai: getGradeType(row.nilai),
       keterangan: row.keterangan.trim() || null,
     }
     try {

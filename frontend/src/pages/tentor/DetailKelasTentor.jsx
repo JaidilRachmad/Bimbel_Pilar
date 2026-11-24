@@ -1,579 +1,388 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { getKelasMy } from '../../services/kelasTentorService';
-import { ChevronRight, LoaderCircle, School, Users, ArrowLeft, ChevronDown, CalendarPlus, UploadCloud, CheckCircle, X, Link as LinkIcon, Edit2, Trash2, Save } from 'lucide-react';
+import {
+  createNilai,
+  deleteNilai,
+  getJadwalSesi,
+  getNilaiSesi,
+  updateNilai,
+} from '../../services/tentorDashboardService';
+import {
+  ArrowLeft,
+  CalendarPlus,
+  LoaderCircle,
+  Save,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 
-export default function DashboardTentor() {
+const MAPEL_TABS = ['Matematika', 'IPA', 'Bahasa Indonesia', 'Bahasa Inggris'];
+const KONVERSI_NILAI = { A: 100, B: 90, C: 80, D: 70, E: 60 };
+
+function getErrorMessage(error, fallback) {
+  return error.response?.data?.message || error.message || fallback;
+}
+
+function toGradeNumber(value) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  if (Object.hasOwn(KONVERSI_NILAI, normalized)) return KONVERSI_NILAI[normalized];
+  if (!normalized) return null;
+  const number = Number(normalized);
+  return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
+}
+
+function getGradeType(value) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  return Object.hasOwn(KONVERSI_NILAI, normalized) ? 'huruf' : 'angka';
+}
+
+function gradeToDisplayValue(grade) {
+  if (!grade) return '';
+  if (grade.tipe_nilai === 'huruf') {
+    return Object.entries(KONVERSI_NILAI)
+      .find(([, number]) => number === Number(grade.nilai))?.[0] || String(grade.nilai);
+  }
+  return String(grade.nilai);
+}
+
+async function getAllSessions(kelasId) {
+  const first = await getJadwalSesi({ kelas_id: kelasId, page: 1, limit: 100 });
+  const sessions = [...(first.data || [])];
+  for (let page = 2; page <= (first.meta?.total_pages || 1); page += 1) {
+    const next = await getJadwalSesi({ kelas_id: kelasId, page, limit: 100 });
+    sessions.push(...(next.data || []));
+  }
+  return sessions;
+}
+
+export default function DetailKelasTentor() {
   const navigate = useNavigate();
-  const [kelasList, setKelasList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // --- STATE KONTROL VIEW ---
+  const { kelasId } = useParams();
   const [selectedKelas, setSelectedKelas] = useState(null);
-  const [activeTab, setActiveTab] = useState('Matematika');
-  const [expandedSessionId, setExpandedSessionId] = useState(null);
-
-  // --- STATE MODALS ---
-  const [showFormSesi, setShowFormSesi] = useState(false);
-  const [editingSesi, setEditingSesi] = useState(null); 
+  const [activeTab, setActiveTab] = useState(MAPEL_TABS[0]);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [error, setError] = useState('');
   const [sessionForNilai, setSessionForNilai] = useState(null);
-  const [sessionForMateri, setSessionForMateri] = useState(null);
-
-  // --- DATA DUMMY (STATE UNTUK CRUD) ---
-  const mapelTabs = ['Matematika', 'IPA', 'Bahasa Indonesia'];
-  
-  // State data sesi untuk simulasi CRUD di frontend
-  const [sessionsData, setSessionsData] = useState({
-    'Matematika': [
-      { id: 1, tanggal: '2026-10-12', waktuMulai: '08:00', waktuSelesai: '09:30', topik: 'Aljabar Linear & Persamaan Dasar', tipe: 'Live Sesi', materiLink: '' },
-      { id: 2, tanggal: '2026-10-15', waktuMulai: '10:00', waktuSelesai: '11:30', topik: 'Geometri Ruang', tipe: 'Diskusi', materiLink: 'https://drive.google.com/file/d/dummy' },
-    ],
-    'IPA': [
-      { id: 3, tanggal: '2026-10-13', waktuMulai: '08:00', waktuSelesai: '09:30', topik: 'Struktur Sel Tumbuhan', tipe: 'Praktikum', materiLink: '' },
-    ],
-    'Bahasa Indonesia': [
-      { id: 4, tanggal: '2026-10-16', waktuMulai: '13:00', waktuSelesai: '14:30', topik: 'Teks Naratif', tipe: 'Diskusi', materiLink: '' },
-      { id: 5, tanggal: '2026-10-18', waktuMulai: '08:00', waktuSelesai: '09:30', topik: 'Puisi Kontemporer', tipe: 'Live Sesi', materiLink: '' },
-    ]
-  });
-
-  // State Input Nilai Siswa
-  const [nilaiSiswa, setNilaiSiswa] = useState([
-    { id: 1, nama: 'hapis', nilai: '', keterangan: '' },
-    { id: 2, nama: 'lyvia', nilai: '', keterangan: '' },
-    { id: 3, nama: 'jaidil', nilai: '', keterangan: '' }
-  ]);
-
-  // Temporary State Form
-  const [formDataSesi, setFormDataSesi] = useState({ topik: '', tanggal: '', tipe: 'Live Sesi', waktuMulai: '', waktuSelesai: '', materiLink: '' });
-  const [formMateriLink, setFormMateriLink] = useState('');
+  const [gradeRows, setGradeRows] = useState([]);
+  const [loadingGrades, setLoadingGrades] = useState(false);
+  const [savingGradeId, setSavingGradeId] = useState(null);
+  const [gradeError, setGradeError] = useState('');
+  const [gradeNotice, setGradeNotice] = useState('');
 
   useEffect(() => {
     let active = true;
     getKelasMy()
       .then((assignments) => {
-        if (active) setKelasList(assignments.filter((a) => a.kelas));
+        const assignment = (assignments || [])
+          .filter((item) => item.kelas)
+          .find((item) => item.kelas_id === kelasId);
+        if (!active) return;
+        setSelectedKelas(assignment || null);
+        setError(assignment ? '' : 'Kelas tidak ditemukan atau tidak termasuk kelas yang Anda ampu.');
       })
-      .catch((err) => {
-        if (active) setError(err.response?.data?.message || 'Gagal memuat kelas yang diampu.');
+      .catch((requestError) => {
+        if (active) setError(getErrorMessage(requestError, 'Gagal memuat kelas.'));
       })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [kelasId]);
 
-  // ---------------------------------------------------------------------------
-  // HANDLERS CRUD SESI
-  // ---------------------------------------------------------------------------
-  const handleOpenTambahSesi = () => {
-    setEditingSesi(null);
-    setFormDataSesi({ topik: '', tanggal: '', tipe: 'Live Sesi', waktuMulai: '', waktuSelesai: '', materiLink: '' });
-    setShowFormSesi(true);
+  useEffect(() => {
+    if (!selectedKelas) return undefined;
+    let active = true;
+    setLoadingSessions(true);
+    setError('');
+    getAllSessions(selectedKelas.kelas_id)
+      .then((allSessions) => {
+        if (active) {
+          setSessions(allSessions.filter((session) => session.mata_pelajaran === activeTab));
+        }
+      })
+      .catch((requestError) => {
+        if (active) setError(getErrorMessage(requestError, 'Gagal memuat jadwal sesi.'));
+      })
+      .finally(() => {
+        if (active) setLoadingSessions(false);
+      });
+    return () => { active = false; };
+  }, [selectedKelas, activeTab]);
+
+  useEffect(() => {
+    if (!sessionForNilai || !selectedKelas) return undefined;
+    let active = true;
+    setLoadingGrades(true);
+    setGradeError('');
+    setGradeNotice('');
+    getNilaiSesi(sessionForNilai.id)
+      .then((grades) => {
+        if (!active) return;
+        const gradeByStudent = new Map(grades.map((grade) => [grade.siswa_id, grade]));
+        setGradeRows((selectedKelas.kelas.kelas_siswa || []).map((enrollment) => {
+          const studentId = enrollment.siswa_id || enrollment.siswa_profile?.id;
+          const profile = Array.isArray(enrollment.siswa_profile)
+            ? enrollment.siswa_profile[0]
+            : enrollment.siswa_profile;
+          const grade = gradeByStudent.get(studentId);
+          return {
+            siswa_id: studentId,
+            nama: profile?.nama || 'Siswa',
+            nilai: gradeToDisplayValue(grade),
+            tipe_nilai: grade?.tipe_nilai || null,
+            keterangan: grade?.keterangan || '',
+            gradeId: grade?.id || null,
+          };
+        }));
+      })
+      .catch((requestError) => {
+        if (active) setGradeError(getErrorMessage(requestError, 'Gagal memuat nilai siswa.'));
+      })
+      .finally(() => {
+        if (active) setLoadingGrades(false);
+      });
+    return () => { active = false; };
+  }, [sessionForNilai, selectedKelas]);
+
+  const updateGradeRow = (studentId, field, value) => {
+    setGradeRows((rows) => rows.map((row) =>
+      row.siswa_id === studentId ? { ...row, [field]: value } : row,
+    ));
   };
 
-  const handleOpenEditSesi = (sesi, e) => {
-    e.stopPropagation();
-    setEditingSesi(sesi);
-    setFormDataSesi({ ...sesi });
-    setShowFormSesi(true);
-  };
-
-  const handleDeleteSesi = (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Yakin ingin menghapus sesi ini?')) {
-      setSessionsData(prev => ({
-        ...prev,
-        [activeTab]: prev[activeTab].filter(s => s.id !== id)
-      }));
-      if (expandedSessionId === id) setExpandedSessionId(null);
-    }
-  };
-
-  const handleSaveSesi = () => {
-    if (!formDataSesi.topik || !formDataSesi.tanggal) {
-      alert('Topik dan tanggal wajib diisi!');
+  const saveGrade = async (row) => {
+    const numericGrade = toGradeNumber(row.nilai);
+    if (numericGrade === null) {
+      setGradeError('Nilai wajib berupa angka 0–100 atau huruf A–E.');
       return;
     }
-
-    if (editingSesi) {
-      // UPDATE Sesi
-      setSessionsData(prev => ({
-        ...prev,
-        [activeTab]: prev[activeTab].map(s => s.id === editingSesi.id ? { ...formDataSesi, id: editingSesi.id } : s)
-      }));
-      alert('Sesi berhasil diperbarui!');
-    } else {
-      // CREATE Sesi
-      const newSesi = { ...formDataSesi, id: Date.now() };
-      setSessionsData(prev => ({
-        ...prev,
-        [activeTab]: [...(prev[activeTab] || []), newSesi]
-      }));
-      alert('Sesi baru berhasil ditambahkan!');
-    }
-    setShowFormSesi(false);
-  };
-
-  // ---------------------------------------------------------------------------
-  // HANDLERS CRUD MATERI (LINK DRIVE)
-  // ---------------------------------------------------------------------------
-  const handleOpenMateri = (sesi) => {
-    setSessionForMateri(sesi);
-    setFormMateriLink(sesi.materiLink || '');
-  };
-
-  const handleSaveMateri = () => {
-    setSessionsData(prev => ({
-      ...prev,
-      [activeTab]: prev[activeTab].map(s => s.id === sessionForMateri.id ? { ...s, materiLink: formMateriLink } : s)
-    }));
-    alert('Link materi berhasil disimpan!');
-    setSessionForMateri(null);
-  };
-
-  const handleDeleteMateri = () => {
-    if(window.confirm('Hapus link materi untuk sesi ini?')) {
-      setSessionsData(prev => ({
-        ...prev,
-        [activeTab]: prev[activeTab].map(s => s.id === sessionForMateri.id ? { ...s, materiLink: '' } : s)
-      }));
-      setSessionForMateri(null);
-      alert('Materi berhasil dihapus.');
+    setSavingGradeId(row.siswa_id);
+    setGradeError('');
+    setGradeNotice('');
+    const payload = {
+      sesi_id: sessionForNilai.id,
+      siswa_id: row.siswa_id,
+      nilai: numericGrade,
+      tipe_nilai: getGradeType(row.nilai),
+      keterangan: row.keterangan.trim() || null,
+    };
+    try {
+      const saved = row.gradeId
+        ? await updateNilai(row.gradeId, payload)
+        : await createNilai(payload);
+      setGradeRows((rows) => rows.map((item) =>
+        item.siswa_id === row.siswa_id
+          ? { ...item, gradeId: saved.id, tipe_nilai: payload.tipe_nilai }
+          : item,
+      ));
+      setGradeNotice(`Nilai ${row.nama} berhasil disimpan.`);
+    } catch (requestError) {
+      setGradeError(getErrorMessage(requestError, 'Nilai gagal disimpan.'));
+    } finally {
+      setSavingGradeId(null);
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // HANDLERS INPUT NILAI & KONVERSI OTOMATIS (A=100, B=90, C=80, D=70, E=60)
-  // ---------------------------------------------------------------------------
-  const handleGradeChange = (idSiswa, value) => {
-    let finalValue = value.toUpperCase();
-    
-    const konversi = { 'A': '100', 'B': '90', 'C': '80', 'D': '70', 'E': '60' };
-    if (konversi[finalValue]) {
-      finalValue = konversi[finalValue];
+  const removeGrade = async (row) => {
+    if (!row.gradeId || !window.confirm(`Hapus nilai ${row.nama}?`)) return;
+    setSavingGradeId(row.siswa_id);
+    setGradeError('');
+    try {
+      await deleteNilai(row.gradeId);
+      setGradeRows((rows) => rows.map((item) =>
+        item.siswa_id === row.siswa_id
+          ? { ...item, gradeId: null, nilai: '', tipe_nilai: null, keterangan: '' }
+          : item,
+      ));
+      setGradeNotice(`Nilai ${row.nama} berhasil dihapus.`);
+    } catch (requestError) {
+      setGradeError(getErrorMessage(requestError, 'Nilai gagal dihapus.'));
+    } finally {
+      setSavingGradeId(null);
     }
-
-    if (!/^\d*$/.test(finalValue) && finalValue !== '') return;
-    if (finalValue !== '' && (parseInt(finalValue) < 0 || parseInt(finalValue) > 100)) return;
-
-    setNilaiSiswa(prev => prev.map(s => s.id === idSiswa ? { ...s, nilai: finalValue } : s));
   };
 
-  const handleSaveNilai = () => {
-    alert('Nilai seluruh siswa berhasil disimpan!');
-    setSessionForNilai(null);
-  };
-
-  // ---------------------------------------------------------------------------
-  // RENDER MODAL: FORM SESI (CREATE/UPDATE)
-  // ---------------------------------------------------------------------------
-  const renderModalFormSesi = () => {
-    if (!showFormSesi) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-blue-600 rounded-t-2xl">
-            <h3 className="text-lg font-bold text-white">{editingSesi ? 'Edit Sesi Pembelajaran' : 'Tambah Sesi Baru'}</h3>
-            <button onClick={() => setShowFormSesi(false)} className="text-white hover:text-gray-200">
-              <X className="h-5 w-5" />
-            </button>
+  const gradeModal = sessionForNilai ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Input Nilai Siswa</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {sessionForNilai.materi || sessionForNilai.topik || 'Sesi pembelajaran'}
+            </p>
+            <p className="mt-2 inline-block rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+              Input huruf A–E atau angka 0–100
+            </p>
           </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Topik Pembahasan</label>
-              <input 
-                type="text" 
-                value={formDataSesi.topik}
-                onChange={(e) => setFormDataSesi({...formDataSesi, topik: e.target.value})}
-                placeholder="Masukkan topik detail sesi hari ini" 
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Tanggal</label>
-                <input 
-                  type="date" 
-                  value={formDataSesi.tanggal}
-                  onChange={(e) => setFormDataSesi({...formDataSesi, tanggal: e.target.value})}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Tipe Ruang</label>
-                <select 
-                  value={formDataSesi.tipe}
-                  onChange={(e) => setFormDataSesi({...formDataSesi, tipe: e.target.value})}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="Live Sesi">Live Sesi (Zoom/Meet)</option>
-                  <option value="Tatap Muka">Tatap Muka (Offline)</option>
-                  <option value="Diskusi">Diskusi / Penugasan</option>
-                  <option value="Praktikum">Praktikum</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Jam Mulai</label>
-                <input 
-                  type="time" 
-                  value={formDataSesi.waktuMulai}
-                  onChange={(e) => setFormDataSesi({...formDataSesi, waktuMulai: e.target.value})}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Jam Selesai</label>
-                <input 
-                  type="time" 
-                  value={formDataSesi.waktuSelesai}
-                  onChange={(e) => setFormDataSesi({...formDataSesi, waktuSelesai: e.target.value})}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-6 py-4">
-            <button onClick={() => setShowFormSesi(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200">Batal</button>
-            <button onClick={handleSaveSesi} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-              {editingSesi ? 'Simpan Perubahan' : 'Simpan Sesi'}
-            </button>
-          </div>
+          <button type="button" onClick={() => setSessionForNilai(null)} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // RENDER MODAL: INPUT NILAI SISWA
-  // ---------------------------------------------------------------------------
-  const renderModalInputNilai = () => {
-    if (!sessionForNilai) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
-          <div className="border-b border-gray-100 px-6 py-5">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Input Nilai Latihan Soal</h3>
-                <p className="text-sm text-gray-500 mt-1">{sessionForNilai.topik} - {activeTab}</p>
-                <p className="text-xs text-blue-600 mt-1 font-medium bg-blue-50 inline-block px-2 py-1 rounded">
-                  💡 Ketik huruf (A=100, B=90, C=80, D=70, E=60) untuk konversi nilai otomatis.
-                </p>
-              </div>
-              <button onClick={() => setSessionForNilai(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="flex-1 overflow-y-auto p-6">
+          {gradeError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{gradeError}</p>}
+          {gradeNotice && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{gradeNotice}</p>}
+          {loadingGrades ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">
+              <LoaderCircle className="h-5 w-5 animate-spin" /> Memuat nilai...
             </div>
-          </div>
-          
-          <div className="overflow-y-auto p-6 flex-1">
-            <div className="rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full text-left text-sm text-gray-600">
-                <thead className="bg-gray-50 text-gray-900 border-b border-gray-200">
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-gray-200">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50 text-gray-900">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Nama Siswa</th>
-                    <th className="px-4 py-3 font-semibold w-28">Nilai</th>
-                    <th className="px-4 py-3 font-semibold">Keterangan Tambahan</th>
+                    <th className="px-4 py-3">Nama Siswa</th>
+                    <th className="w-28 px-4 py-3">Nilai</th>
+                    <th className="px-4 py-3">Keterangan</th>
+                    <th className="w-32 px-4 py-3 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {nilaiSiswa.map((siswa) => (
-                    <tr key={siswa.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-medium text-gray-800 capitalize">{siswa.nama}</td>
+                  {gradeRows.map((row) => (
+                    <tr key={row.siswa_id}>
+                      <td className="px-4 py-3 font-medium text-gray-800">{row.nama}</td>
                       <td className="px-4 py-3">
-                        <input 
-                          type="text" 
-                          value={siswa.nilai}
-                          onChange={(e) => handleGradeChange(siswa.id, e.target.value)}
-                          placeholder="0-100 / A-E" 
-                          className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm font-semibold focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-center" 
+                        <input
+                          type="text"
+                          value={row.nilai}
+                          onChange={(event) => updateGradeRow(row.siswa_id, 'nilai', event.target.value)}
+                          placeholder="A atau 90"
+                          className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-center font-bold focus:border-blue-500 focus:outline-none"
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <input 
-                          type="text" 
-                          value={siswa.keterangan}
-                          onChange={(e) => setNilaiSiswa(prev => prev.map(s => s.id === siswa.id ? {...s, keterangan: e.target.value} : s))}
-                          placeholder="Catatan opsional..." 
-                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                        <input
+                          type="text"
+                          value={row.keterangan}
+                          onChange={(event) => updateGradeRow(row.siswa_id, 'keterangan', event.target.value)}
+                          placeholder="Catatan perkembangan..."
+                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 focus:border-blue-500 focus:outline-none"
                         />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={savingGradeId === row.siswa_id}
+                            onClick={() => saveGrade(row)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            {row.gradeId ? 'Simpan' : 'Tambah'}
+                          </button>
+                          {row.gradeId && (
+                            <button
+                              type="button"
+                              disabled={savingGradeId === row.siswa_id}
+                              onClick={() => removeGrade(row)}
+                              className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-b-2xl border-t border-gray-100 bg-gray-50 px-6 py-4">
-            <button onClick={() => setNilaiSiswa(prev => prev.map(s => ({...s, nilai: '', keterangan: ''})))} className="text-sm font-medium text-red-600 hover:text-red-800">Reset Form</button>
-            <div className="flex gap-3">
-              <button onClick={() => setSessionForNilai(null)} className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Batal</button>
-              <button onClick={handleSaveNilai} className="rounded-lg bg-blue-900 px-5 py-2 text-sm font-bold text-white hover:bg-blue-800">Simpan Data Nilai</button>
-            </div>
-          </div>
+          )}
         </div>
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // RENDER MODAL: UPLOAD MATERI BELAJAR (LINK DRIVE)
-  // ---------------------------------------------------------------------------
-  const renderModalUploadMateri = () => {
-    if (!sessionForMateri) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h3 className="text-lg font-bold text-gray-900">Kelola Materi Belajar</h3>
-            <button onClick={() => setSessionForMateri(null)} className="text-gray-400 hover:text-gray-600">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="p-6">
-            <p className="text-sm text-gray-500 mb-4">Tambahkan atau perbarui tautan Google Drive untuk materi sesi <strong>{sessionForMateri.topik}</strong>.</p>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Link Google Drive</label>
-            <div className="relative">
-              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input 
-                type="url" 
-                value={formMateriLink}
-                onChange={(e) => setFormMateriLink(e.target.value)}
-                placeholder="https://drive.google.com/file/d/..." 
-                className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" 
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between rounded-b-2xl border-t border-gray-100 bg-gray-50 px-6 py-4">
-            {sessionForMateri.materiLink ? (
-              <button onClick={handleDeleteMateri} className="text-sm font-medium text-red-600 hover:text-red-800 flex items-center gap-1">
-                <Trash2 className="w-4 h-4" /> Hapus Materi
-              </button>
-            ) : <div></div>}
-            <div className="flex gap-3">
-              <button onClick={() => setSessionForMateri(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200">Batal</button>
-              <button onClick={handleSaveMateri} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">
-                <Save className="w-4 h-4 inline-block mr-1" /> Simpan
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // RENDER: DETAIL KELAS
-  // ---------------------------------------------------------------------------
-  const renderDetailKelas = () => {
-    const currentSessions = sessionsData[activeTab] || [];
-
-    return (
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <div className="mb-6 flex items-center gap-4">
-          <button 
-            onClick={() => setSelectedKelas(null)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-5 w-5" />
+        <div className="flex justify-end border-t border-gray-100 bg-gray-50 px-6 py-4">
+          <button type="button" onClick={() => setSessionForNilai(null)} className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-bold text-gray-700">
+            Selesai
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{selectedKelas.kelas.nama_kelas}</h1>
-            <p className="mt-1 text-sm text-gray-500">Kelola jadwal sesi, unggah materi belajar, dan input nilai siswa.</p>
-          </div>
         </div>
+      </div>
+    </div>
+  ) : null;
 
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="border-b border-gray-200 bg-gray-50/50 px-6 pt-5">
-            <ul className="flex space-x-8 text-sm font-medium text-gray-500 overflow-x-auto hide-scrollbar">
-              {mapelTabs.map((mapel) => (
-                <li key={mapel}>
-                  <button
-                    onClick={() => {
-                      setActiveTab(mapel);
-                      setExpandedSessionId(null);
-                    }}
-                    className={`pb-4 transition-all duration-200 border-b-2 whitespace-nowrap ${
-                      activeTab === mapel
-                        ? 'border-blue-600 text-blue-700 font-bold'
-                        : 'border-transparent hover:text-gray-800 hover:border-gray-300'
-                    }`}
-                  >
-                    {mapel}
-                  </button>
-                </li>
-              ))}
-            </ul>
+  return (
+    <DashboardLayout>
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <LoaderCircle className="h-5 w-5 animate-spin" /> Memuat kelas...
+        </div>
+      ) : !selectedKelas ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {error || 'Kelas tidak ditemukan.'}
+          <button type="button" onClick={() => navigate('/tentor')} className="ml-3 font-bold underline">
+            Kembali
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div className="mb-6 flex items-center gap-4">
+            <button type="button" onClick={() => navigate('/tentor')} className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{selectedKelas.kelas.nama_kelas}</h1>
+              <p className="mt-1 flex items-center gap-1 text-sm text-gray-500">
+                <Users className="h-4 w-4" />
+                {selectedKelas.kelas.kelas_siswa?.length || 0} siswa
+              </p>
+            </div>
           </div>
 
-          <div className="p-6 min-h-[400px]">
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h2 className="text-lg font-bold text-gray-900">
-                Jadwal Sesi - {activeTab}
-              </h2>
-              <button 
-                onClick={handleOpenTambahSesi}
-                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Tambah Sesi Baru
-              </button>
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="flex gap-6 overflow-x-auto border-b border-gray-200 bg-gray-50 px-6 pt-4">
+              {MAPEL_TABS.map((mapel) => (
+                <button
+                  key={mapel}
+                  type="button"
+                  onClick={() => setActiveTab(mapel)}
+                  className={`whitespace-nowrap border-b-2 pb-3 text-sm font-semibold ${
+                    activeTab === mapel ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'
+                  }`}
+                >
+                  {mapel}
+                </button>
+              ))}
             </div>
-
-            <div className="space-y-4">
-              {currentSessions.length > 0 ? (
-                currentSessions.map((sesi) => (
-                  <div 
-                    key={sesi.id} 
-                    className={`group rounded-xl border bg-white transition-all duration-200 ${
-                      expandedSessionId === sesi.id 
-                        ? 'border-blue-300 shadow-md ring-1 ring-blue-100' 
-                        : 'border-gray-200 hover:border-blue-200 hover:shadow-sm'
-                    }`}
-                  >
-                    <div 
-                      className="flex cursor-pointer items-center justify-between p-5"
-                      onClick={() => setExpandedSessionId(expandedSessionId === sesi.id ? null : sesi.id)}
-                    >
-                      <div>
-                        <div className="mb-2 flex items-center gap-3">
-                          <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-blue-700">
-                            {sesi.tipe}
-                          </span>
-                          <span className="text-sm font-medium text-gray-500">
-                            {sesi.tanggal} • {sesi.waktuMulai} - {sesi.waktuSelesai}
-                          </span>
-                          {sesi.materiLink && (
-                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                              <LinkIcon className="w-3 h-3 mr-1" /> Materi Tersedia
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
-                          {sesi.topik}
-                        </h3>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {/* Tombol CRUD Sesi (Edit & Delete) */}
-                        <div className={`flex transition-opacity duration-200 ${expandedSessionId === sesi.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                          <button onClick={(e) => handleOpenEditSesi(sesi, e)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full" title="Edit Sesi">
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={(e) => handleDeleteSesi(sesi.id, e)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full" title="Hapus Sesi">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        
-                        <div className={`rounded-full p-2 transition-colors ml-2 ${expandedSessionId === sesi.id ? 'bg-blue-50 text-blue-600' : 'text-gray-400 group-hover:bg-gray-50 group-hover:text-gray-600'}`}>
-                          <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${expandedSessionId === sesi.id ? 'rotate-180' : ''}`} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Accordion Actions */}
-                    {expandedSessionId === sesi.id && (
-                      <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 p-5 sm:flex-row">
-                        <button 
-                          onClick={() => setSessionForNilai(sesi)}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-sm transition hover:bg-blue-50 hover:border-blue-300"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Input Nilai Siswa
-                        </button>
-                        <button 
-                          onClick={() => handleOpenMateri(sesi)}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:border-emerald-300"
-                        >
-                          <UploadCloud className="h-4 w-4" />
-                          {sesi.materiLink ? 'Edit Link Materi' : 'Upload Link Materi'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
+            <div className="p-6">
+              {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+              {loadingSessions ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-500">
+                  <LoaderCircle className="h-5 w-5 animate-spin" /> Memuat sesi...
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center">
+                  <CalendarPlus className="mx-auto h-8 w-8 text-gray-400" />
+                  <p className="mt-3 text-sm font-medium text-gray-600">Belum ada sesi untuk {activeTab}</p>
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center">
-                  <CalendarPlus className="mb-3 h-10 w-10 text-gray-400" />
-                  <h3 className="mb-1 text-sm font-bold text-gray-900">Belum ada sesi</h3>
-                  <p className="text-sm text-gray-500">Buat jadwal sesi pertama untuk mata pelajaran ini.</p>
+                <div className="space-y-3">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-bold text-gray-900">{session.materi || 'Sesi pembelajaran'}</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {session.tanggal || '-'} • {session.jam_mulai || '-'} - {session.jam_selesai || '-'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSessionForNilai(session)}
+                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+                      >
+                        Input Nilai
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
         </div>
-      </div>
-    );
-  };
-
-  // ---------------------------------------------------------------------------
-  // RENDER: DAFTAR KELAS (BERANDA UTAMA)
-  // ---------------------------------------------------------------------------
-  const renderDaftarKelas = () => (
-    <div className="animate-in fade-in duration-300">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Beranda Guru</h1>
-        <p className="mt-1 text-gray-500">Pilih kelas yang kamu ampu untuk mengelola sesi pembelajaran.</p>
-      </div>
-
-      {error && (
-        <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
       )}
-
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white p-10 text-sm text-gray-500 shadow-sm">
-          <LoaderCircle className="h-5 w-5 animate-spin" /> Memuat kelas...
-        </div>
-      ) : kelasList.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
-          Kamu belum ditugaskan ke kelas mana pun. Hubungi admin untuk penugasan kelas.
-        </div>
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {kelasList.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSelectedKelas(item)}
-              className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              <div className="mb-5 flex items-start justify-between">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-                  <School className="h-6 w-6" />
-                </span>
-                <ChevronRight className="h-5 w-5 text-gray-400 transition group-hover:translate-x-1 group-hover:text-blue-600" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-900">{item.kelas.nama_kelas}</h2>
-              <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
-                <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{item.kelas.jenjang}</span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Users className="h-4 w-4" />
-                  {item.kelas.kelas_siswa?.length || 0} siswa
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <DashboardLayout>
-      {selectedKelas ? renderDetailKelas() : renderDaftarKelas()}
-      
-      {/* Modal Components */}
-      {renderModalFormSesi()}
-      {renderModalInputNilai()}
-      {renderModalUploadMateri()}
+      {gradeModal}
     </DashboardLayout>
   );
 }
