@@ -1,0 +1,245 @@
+"use strict";
+/**
+ * MODEL (MVC) — Penilaian Siswa
+ * Tugas: Berinteraksi dengan database Supabase, aturan bisnis, dan query data.
+ */
+const supabase = require("../config/supabaseClient");
+const AppError = require("../utils/AppError");
+
+const TABLE = "penilaian_siswa";
+const COLUMNS = "id, sesi_id, siswa_id, nilai, tipe_nilai, keterangan, created_at";
+const COLUMNS_WITH_SESSION = `${COLUMNS}, sesi_pembelajaran:sesi_id (kelas_id, mata_pelajaran, materi, tanggal, jam_mulai, jam_selesai, kelas:kelas_id (nama_kelas, jenjang))`;
+const NOT_FOUND = "Data penilaian siswa tidak ditemukan";
+
+const WRITABLE_FIELDS = Object.freeze(["sesi_id", "siswa_id", "nilai", "tipe_nilai", "keterangan"]);
+
+function pickWritable(input = {}) {
+    const out = {};
+    for (const key of WRITABLE_FIELDS) {
+        if (input[key] !== undefined) out[key] = input[key];
+    }
+    if (Object.keys(out).length === 0) throw new Error("Tidak ada field yang boleh disimpan");
+    return out;
+}
+
+async function attachClassStatistics(grades) {
+    const sessionIds = [...new Set((grades || []).map((grade) => grade.sesi_id).filter(Boolean))];
+    if (sessionIds.length === 0) return grades || [];
+
+    const { data: sessionGrades, error: sessionGradesError } = await supabase
+        .from(TABLE)
+        .select("sesi_id, siswa_id, nilai")
+        .in("sesi_id", sessionIds);
+
+    if (sessionGradesError) throw sessionGradesError;
+
+    const studentIds = [...new Set((sessionGrades || []).map((grade) => grade.siswa_id).filter(Boolean))];
+    const studentNames = new Map();
+    if (studentIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+            .from("siswa_profile")
+            .select("id, nama")
+            .in("id", studentIds);
+
+        if (profilesError) throw profilesError;
+        (profiles || []).forEach((profile) => {
+            studentNames.set(profile.id, profile.nama || "Siswa");
+        });
+    }
+
+    const statsBySession = new Map();
+    for (const grade of sessionGrades || []) {
+        const score = Number(grade.nilai);
+        if (!Number.isFinite(score)) continue;
+
+        const stats = statsBySession.get(grade.sesi_id) || {
+            total: 0,
+            count: 0,
+            highest: -Infinity,
+            topStudentNames: new Map(),
+        };
+        stats.total += score;
+        stats.count += 1;
+
+        const studentName = studentNames.get(grade.siswa_id) || "Siswa";
+        if (score > stats.highest) {
+            stats.highest = score;
+            stats.topStudentNames = new Map([[grade.siswa_id, studentName]]);
+        } else if (score === stats.highest) {
+            stats.topStudentNames.set(grade.siswa_id, studentName);
+        }
+        statsBySession.set(grade.sesi_id, stats);
+    }
+
+    return (grades || []).map((grade) => {
+        const stats = statsBySession.get(grade.sesi_id);
+        return {
+            ...grade,
+            rata_rata_kelas: stats?.count
+                ? Math.round((stats.total / stats.count) * 100) / 100
+                : null,
+            nilai_tertinggi: stats?.count ? stats.highest : null,
+            nilai_tertinggi_nama: stats?.count ? [...stats.topStudentNames.values()].sort() : [],
+        };
+    });
+}
+
+async function attachClassStatistics(grades) {
+    const sessionIds = [...new Set((grades || []).map((grade) => grade.sesi_id).filter(Boolean))];
+    if (sessionIds.length === 0) return grades || [];
+
+    const { data: sessionGrades, error: sessionGradesError } = await supabase
+        .from(TABLE)
+        .select("sesi_id, siswa_id, nilai")
+        .in("sesi_id", sessionIds);
+
+    if (sessionGradesError) throw sessionGradesError;
+
+    const studentIds = [...new Set((sessionGrades || []).map((grade) => grade.siswa_id).filter(Boolean))];
+    const studentNames = new Map();
+
+    if (studentIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+            .from("siswa_profile")
+            .select("id, nama")
+            .in("id", studentIds);
+
+        if (profilesError) throw profilesError;
+        (profiles || []).forEach((profile) => {
+            studentNames.set(profile.id, profile.nama || "Siswa");
+        });
+    }
+
+    const statsBySession = new Map();
+    for (const grade of sessionGrades || []) {
+        const score = Number(grade.nilai);
+        if (!Number.isFinite(score)) continue;
+
+        const stats = statsBySession.get(grade.sesi_id) || {
+            total: 0,
+            count: 0,
+            highest: -Infinity,
+            topStudentNames: new Map(),
+        };
+        stats.total += score;
+        stats.count += 1;
+
+        const studentName = studentNames.get(grade.siswa_id) || "Siswa";
+        if (score > stats.highest) {
+            stats.highest = score;
+            stats.topStudentNames = new Map([[grade.siswa_id, studentName]]);
+        } else if (score === stats.highest) {
+            stats.topStudentNames.set(grade.siswa_id, studentName);
+        }
+
+        statsBySession.set(grade.sesi_id, stats);
+    }
+
+    return (grades || []).map((grade) => {
+        const stats = statsBySession.get(grade.sesi_id);
+        return {
+            ...grade,
+            rata_rata_kelas: stats?.count
+                ? Math.round((stats.total / stats.count) * 100) / 100
+                : null,
+            nilai_tertinggi: stats?.count ? stats.highest : null,
+            nilai_tertinggi_nama: stats?.count ? [...stats.topStudentNames.values()].sort() : [],
+        };
+    });
+}
+
+class PenilaianSiswaModel {
+    static WRITABLE_FIELDS = WRITABLE_FIELDS;
+
+    static async getPaginated({ page, limit, sesi_id, siswa_id, tentor_id }) {
+        const offset = (page - 1) * limit;
+        let query = supabase.from(TABLE).select(COLUMNS_WITH_SESSION, { count: "exact" });
+        
+        if (sesi_id) query = query.eq("sesi_id", sesi_id);
+        if (siswa_id) query = query.eq("siswa_id", siswa_id);
+        if (tentor_id) {
+            const { data: sessions, error: sessionError } = await supabase
+                .from("sesi_pembelajaran")
+                .select("id")
+                .eq("tentor_id", tentor_id);
+            if (sessionError) throw sessionError;
+            const sessionIds = (sessions || []).map(({ id }) => id);
+            if (sesi_id && !sessionIds.includes(sesi_id)) {
+                return { items: [], meta: { page, limit, total: 0, total_pages: 0 } };
+            }
+            if (sessionIds.length === 0) {
+                return { items: [], meta: { page, limit, total: 0, total_pages: 0 } };
+            }
+            query = query.in("sesi_id", sesi_id ? [sesi_id] : sessionIds);
+        }
+
+        const { data, error, count, status, statusText } = await query
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+        return {
+            items: await attachClassStatistics(data),
+            meta: { page, limit, total: count ?? 0, total_pages: Math.ceil((count ?? 0) / limit) },
+        };
+    }
+
+    static async getById(id) {
+        const { data, error } = await supabase.from(TABLE).select(COLUMNS).eq("id", id).maybeSingle();
+        if (error) throw error;
+        if (!data) throw AppError.notFound(NOT_FOUND);
+        return data;
+    }
+
+    static async getBySiswaId(siswaId, periode) {
+        const { data, error } = await supabase
+            .from(TABLE)
+            .select(COLUMNS_WITH_SESSION)
+            .eq("siswa_id", siswaId)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        const filteredData = periode
+            ? (data || []).filter((grade) => String(grade.sesi_pembelajaran?.tanggal || "").startsWith(`${periode}-`))
+            : data || [];
+        return attachClassStatistics(filteredData);
+    }
+
+    static async create(input) {
+        const payload = {
+            ...pickWritable(input),
+            created_at: new Date().toISOString(),
+        };
+        const { data, error } = await supabase.from(TABLE).insert(payload).select(COLUMNS).single();
+        if (error) throw error;
+        return data;
+    }
+
+    static async update(id, input) {
+        const payload = pickWritable(input);
+        const { data, error } = await supabase
+            .from(TABLE)
+            .update(payload)
+            .eq("id", id)
+            .select(COLUMNS)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw AppError.notFound(NOT_FOUND);
+        return data;
+    }
+
+    static async remove(id) {
+        const { data, error } = await supabase
+            .from(TABLE)
+            .delete()
+            .eq("id", id)
+            .select("id")
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw AppError.notFound(NOT_FOUND);
+    }
+}
+
+module.exports = PenilaianSiswaModel;
