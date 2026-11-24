@@ -52,11 +52,16 @@ function validateBody(body) {
         errors.push("Nilai harus berada di antara rentang 0 sampai 100.");
     }
 
+    if (!["angka", "huruf"].includes(body.tipe_nilai)) {
+    errors.push("tipe_nilai harus berupa 'angka' atau 'huruf'");
+}
+
     assertValid(errors);
     return {
         sesi_id: body.sesi_id,
         siswa_id: body.siswa_id,
         nilai: body.nilai,
+        tipe_nilai: body.tipe_nilai,
         keterangan: body.keterangan ? body.keterangan.trim() : null,
     };
 }
