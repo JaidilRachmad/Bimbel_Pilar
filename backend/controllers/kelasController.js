@@ -8,11 +8,19 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const NAMA_KELAS_PATTERN = /^[A-Za-z0-9 .()-]+$/; 
 const NAMA_KELAS_MAX = 50;
 const JENJANG_LIST = Object.freeze(["SD", "SMP"]);
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "jenjang"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "jenjang", "sort"]);
 const PAGINATION = Object.freeze({
     defaultLimit: 10,
     maxLimit: 100
 });
+const HARGA_MIN = 1000;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDate(value) {
+    if (!DATE_PATTERN.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
 
 // ======================= VALIDASI INPUT =======================
 function assertValid(errors) {
@@ -40,6 +48,21 @@ function validateBody(body) {
         errors.push("Terdapat field yang tidak diizinkan"); // cegah mass assignment
     }
 
+    // --- harga ---
+    let harga;
+    if (body.harga === undefined || body.harga === null || body.harga === "") {
+        errors.push("harga wajib diisi");
+    } else {
+        const n = typeof body.harga === "number" ? body.harga : Number(body.harga);
+        if (!Number.isFinite(n) || !Number.isInteger(n)) {
+            errors.push("harga harus berupa bilangan bulat");
+        } else if (n < HARGA_MIN) {
+            errors.push(`harga minimal Rp${HARGA_MIN.toLocaleString("id-ID")}`);
+        } else {
+            harga = n;
+        }
+    }
+
     let nama = "";
     if (typeof body.nama_kelas !== "string" || body.nama_kelas.trim() === "") {
         errors.push("nama_kelas wajib diisi");
@@ -56,8 +79,22 @@ function validateBody(body) {
         errors.push(`jenjang wajib salah satu dari: ${JENJANG_LIST.join(", ")}`);
     }
 
+    const periodeMulai = typeof body.periode_mulai === "string" ? body.periode_mulai.trim() : "";
+    const periodeSelesai = typeof body.periode_selesai === "string" ? body.periode_selesai.trim() : "";
+    if (!isValidDate(periodeMulai)) errors.push("periode_mulai wajib berupa tanggal valid berformat YYYY-MM-DD.");
+    if (!isValidDate(periodeSelesai)) errors.push("periode_selesai wajib berupa tanggal valid berformat YYYY-MM-DD.");
+    if (isValidDate(periodeMulai) && isValidDate(periodeSelesai) && periodeMulai > periodeSelesai) {
+        errors.push("periode_selesai tidak boleh sebelum periode_mulai.");
+    }
+
     assertValid(errors);
-    return { nama_kelas: nama, jenjang };
+    return {
+        nama_kelas: nama,
+        jenjang,
+        harga,
+        periode_mulai: periodeMulai,
+        periode_selesai: periodeSelesai,
+    };
 }
 function validateListQuery(query) {
     const errors = [];
@@ -78,8 +115,11 @@ function validateListQuery(query) {
         if (!JENJANG_LIST.includes(jenjang)) errors.push("Filter jenjang tidak valid");
     }
 
+    const sort = query.sort === undefined ? "asc" : String(query.sort).toLowerCase();
+    if (!["asc", "desc"].includes(sort)) errors.push("sort harus asc atau desc");
+
     assertValid(errors);
-    return { page, limit, jenjang };
+    return { page, limit, jenjang, sort };
 }
 // ======================= HANDLER =======================
 const KelasController = {

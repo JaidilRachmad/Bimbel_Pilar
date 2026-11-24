@@ -5,8 +5,32 @@ const tokenService = require("../models/tokenService");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const PAKET_LIST = Object.freeze(["Bulanan", "Tahunan"]);
+const METODE_LIST = Object.freeze(["Transfer", "Cash"]);
+
+function isValidDate(value) {
+  if (!DATE_PATTERN.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function assertValid(errors) {
+  if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
+}
+
 const createAccount = asyncHandler(async (req, res) => {
-  const { role, nama, noTelp, extraField } = req.body;
+  const {
+    role,
+    nama,
+    noTelp,
+    extraField,
+    kelasId,
+    tanggalMulaiBelajar,
+    paket,
+    metodePembayaran,
+  } = req.body ?? {};
 
   if (!role || !nama || !noTelp) {
     throw AppError.badRequest("Field role, nama, dan noTelp wajib diisi!");
@@ -15,6 +39,35 @@ const createAccount = asyncHandler(async (req, res) => {
   if (!["siswa", "tentor"].includes(role)) {
     throw AppError.badRequest("Role harus berupa 'siswa' atau 'tentor'");
   }
+
+  if (role === "siswa" && !UUID_PATTERN.test(kelasId || "")) {
+    throw AppError.badRequest("kelasId wajib diisi dengan ID kelas yang valid untuk siswa.");
+  }
+
+  if (role === "tentor" && kelasId !== undefined) {
+    throw AppError.badRequest("Tentor tidak dapat ditambahkan ke kelas melalui endpoint ini.");
+  }
+
+  let tagihanSpp;
+  if (role === "siswa") {
+    const errors = [];
+    if (typeof extraField !== "string" || extraField.trim() === "") {
+      errors.push("Nama orang tua/wali wajib diisi untuk siswa.");
+    }
+    if (!isValidDate(tanggalMulaiBelajar || "")) {
+      errors.push("tanggalMulaiBelajar wajib berupa tanggal valid berformat YYYY-MM-DD.");
+    }
+    if (!PAKET_LIST.includes(paket)) {
+      errors.push(`paket wajib salah satu dari: ${PAKET_LIST.join(", ")}.`);
+    }
+    if (paket === "Tahunan" && !METODE_LIST.includes(metodePembayaran)) {
+      errors.push(`metodePembayaran wajib salah satu dari: ${METODE_LIST.join(", ")} untuk paket Tahunan.`);
+    }
+
+    assertValid(errors);
+    tagihanSpp = { tanggalMulaiBelajar, paket, metodePembayaran };
+  }
+
   const rawToken = tokenService.generateRandomToken();
   const hashedToken = tokenService.encrypt(rawToken);
   const newProfile = await userModel.createUserProfile({
@@ -22,7 +75,9 @@ const createAccount = asyncHandler(async (req, res) => {
     tokenAkses: hashedToken,
     nama,
     noTelp,
-    extraField
+    extraField,
+    kelasId,
+    tagihanSpp
   });
 
   return sendSuccess(res, "Akun dan token akses berhasil dibuat!", {

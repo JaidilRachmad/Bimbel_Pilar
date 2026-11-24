@@ -16,11 +16,14 @@ router.use(authenticateToken, authorizeRoles(ADMIN_ROLE));
  *   schemas:
  *     KelasInput:
  *       type: object
- *       required: [nama_kelas, jenjang]
+ *       required: [nama_kelas, jenjang, harga, periode_mulai, periode_selesai]
  *       additionalProperties: false
  *       properties:
  *         nama_kelas: { type: string, maxLength: 50, example: "Kelas 9A" }
  *         jenjang: { type: string, example: "SMP" }
+ *         harga: { type: integer, example: 385000 }
+ *         periode_mulai: { type: string, format: date, example: "2026-01-01" }
+ *         periode_selesai: { type: string, format: date, example: "2026-10-31" }
  */
 
 /**

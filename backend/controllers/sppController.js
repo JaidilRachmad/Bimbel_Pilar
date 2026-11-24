@@ -3,11 +3,11 @@
 const TagihanSppModel = require("../models/sppModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
+const supabase = require("../config/supabaseClient");
 
 // ======================= VALIDASI INPUT =======================
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BULAN_PATTERN = /^[A-Za-z0-9 ]+$/; // Contoh: "Juni 2026"
 const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "status"]);
 
 function assertValid(errors) {
@@ -46,17 +46,12 @@ function validateBody(body) {
 
     const statusList = ["Belum Bayar", "Lunas"];
     if (!statusList.includes(body.status)) {
-        errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
+    errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
     }
 
-    let bulan = "";
-    if (typeof body.bulan !== "string" || body.bulan.trim() === "") {
-        errors.push("bulan wajib diisi");
-    } else {
-        bulan = body.bulan.trim();
-        if (!BULAN_PATTERN.test(bulan)) {
-            errors.push("Format bulan tidak valid");
-        }
+    const bulan = parsePositiveInt(String(body.bulan), NaN);
+    if (!Number.isInteger(bulan) || bulan < 1 || bulan > 12) {
+        errors.push("bulan wajib berupa angka 1 sampai 12");
     }
 
     const tahun = parsePositiveInt(String(body.tahun), NaN);
@@ -88,7 +83,7 @@ function validateListQuery(query) {
 
     let status;
     if (query.status !== undefined) {
-        status = query.status.trim().toUpperCase();
+        status = query.status.trim();
         if (!["Belum Bayar", "Lunas"].includes(status)) errors.push("Filter status tidak valid");
     }
 
@@ -130,6 +125,66 @@ const TagihanSppController = {
     remove: asyncHandler(async (req, res) => {
         await TagihanSppModel.remove(validateId(req.params));
         return sendSuccess(res, 200, { message: "Tagihan SPP berhasil dihapus" });
+    }),
+
+        // FUNGSI BARU: Handler untuk edit tanggal
+    editTanggal: asyncHandler(async (req, res) => {
+        const id = validateId(req.params); // ID tagihan_spp
+        const { tanggal_pembayaran } = req.body;
+
+        if (!tanggal_pembayaran) {
+            throw AppError.badRequest("Tanggal pembayaran wajib diisi");
+        }
+
+        // Panggil model
+        const data = await TagihanSppModel.updateInvoiceDate(id, tanggal_pembayaran);
+
+        return sendSuccess(res, 200, { 
+            message: "Tanggal pembayaran berhasil diperbarui", 
+            data 
+        });
+    }),
+
+    // FUNGSI BARU: Konfirmasi Lunas + Generate Invoice
+    bayarTagihan: asyncHandler(async (req, res) => {
+        const id = validateId(req.params); // ID tagihan_spp
+        const { tanggal_pembayaran, metode_pembayaran } = req.body;
+
+        // 1. Cek tagihan ada atau tidak
+        const tagihan = await TagihanSppModel.getById(id);
+        if (!tagihan) throw AppError.notFound("Tagihan tidak ditemukan");
+
+        // 2. Generate Nomor Invoice (Format: INV/YYYY/MM/XXX)
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        // Catatan: Untuk 3 digit terakhir (XXX), idealnya hitung dari database.
+        // Karena ini belum ada helper-nya, kita pakai timestamp dulu untuk sementara
+        const nomor_invoice = `INV/${year}/${month}/${Date.now().toString().slice(-3)}`;
+
+        // 3. Insert ke tabel invoice_pembayaran
+        const { data: invoice, error: errorInvoice } = await supabase
+            .from('invoice_pembayaran')
+            .insert({
+                tagihan_id: id,
+                nomor_invoice: nomor_invoice,
+                tanggal_pembayaran: tanggal_pembayaran || new Date().toISOString().split('T')[0],
+                total_pembayaran: tagihan.nominal,
+                metode_pembayaran: metode_pembayaran || 'Transfer',
+                keterangan: 'Pembayaran SPP'
+            })
+            .select()
+            .single();
+
+        if (errorInvoice) throw AppError.internal("Gagal membuat invoice");
+
+        // 4. Update status tagihan_spp menjadi Lunas
+        await TagihanSppModel.update(id, { status: 'Lunas' });
+
+        return sendSuccess(res, 200, { 
+            message: "Pembayaran berhasil dikonfirmasi", 
+            data: invoice 
+        });
     }),
 };
 

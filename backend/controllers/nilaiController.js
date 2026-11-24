@@ -6,9 +6,10 @@
 const PenilaianSiswaModel = require("../models/nilaiModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
+const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "sesi_id", "siswa_id"]);
+const ALLOWED_QUERY_KEYS = Object.freeze(["page", "limit", "sesi_id", "siswa_id", "periode"]);
 
 function assertValid(errors) {
     if (errors.length) throw AppError.badRequest("Validasi gagal", errors);
@@ -88,18 +89,58 @@ function validateListQuery(query) {
         siswa_id = query.siswa_id;
     }
 
+    if (query.periode !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(query.periode)) {
+        errors.push("Filter periode harus berformat YYYY-MM");
+    }
+
     assertValid(errors);
-    return { page, limit, sesi_id, siswa_id };
+    const periode = query.periode;
+    return { page, limit, sesi_id, siswa_id, periode };
+}
+
+async function assertGradeBelongsToTentor(sesiId, tentorId) {
+    const { data: session, error: sessionError } = await supabase
+        .from("sesi_pembelajaran")
+        .select("id, kelas_id")
+        .eq("id", sesiId)
+        .eq("tentor_id", tentorId)
+        .maybeSingle();
+    if (sessionError) throw sessionError;
+    if (!session) throw AppError.forbidden("Sesi ini tidak termasuk sesi yang Anda ampu.");
+    return session.kelas_id;
+}
+
+async function assertStudentInClass(siswaId, kelasId) {
+    const { data, error } = await supabase
+        .from("kelas_siswa")
+        .select("id")
+        .eq("kelas_id", kelasId)
+        .eq("siswa_id", siswaId)
+        .maybeSingle();
+    if (error) throw error;
+    if (!data) throw AppError.badRequest("Siswa tidak terdaftar pada kelas sesi ini.");
+}
+
+async function assertExistingGradeBelongsToTentor(id, tentorId) {
+    const grade = await PenilaianSiswaModel.getById(id);
+    await assertGradeBelongsToTentor(grade.sesi_id, tentorId);
+    return grade;
 }
 
 const PenilaianSiswaController = {
     getAll: asyncHandler(async (req, res) => {
-        const { items, meta } = await PenilaianSiswaModel.getPaginated(validateListQuery(req.query));
+        const query = validateListQuery(req.query);
+        const { items, meta } = await PenilaianSiswaModel.getPaginated({
+            ...query,
+            tentor_id: req.user.role === "tentor" ? req.user.id : undefined,
+        });
         return sendSuccess(res, 200, { data: items, meta });
     }),
 
     getById: asyncHandler(async (req, res) => {
-        const data = await PenilaianSiswaModel.getById(validateId(req.params));
+        const id = validateId(req.params);
+        if (req.user.role === "tentor") await assertExistingGradeBelongsToTentor(id, req.user.id);
+        const data = await PenilaianSiswaModel.getById(id);
         return sendSuccess(res, 200, { data });
     }),
 
@@ -109,19 +150,35 @@ const PenilaianSiswaController = {
         return sendSuccess(res, 200, { data });
     }),
 
+    getBySiswaId: asyncHandler(async (req, res) => {
+        const siswaId = validateId({ id: req.params.siswaId });
+        const { periode } = validateListQuery(req.query);
+        const data = await PenilaianSiswaModel.getBySiswaId(siswaId, periode);
+        return sendSuccess(res, 200, { data, meta: { page: 1, limit: data.length, total: data.length, total_pages: data.length ? 1 : 0 } });
+    }),
+
     create: asyncHandler(async (req, res) => {
-        const data = await PenilaianSiswaModel.create(validateBody(req.body));
+        const body = validateBody(req.body);
+        const kelasId = await assertGradeBelongsToTentor(body.sesi_id, req.user.id);
+        await assertStudentInClass(body.siswa_id, kelasId);
+        const data = await PenilaianSiswaModel.create(body);
         return sendSuccess(res, 201, { message: "Penilaian siswa berhasil ditambahkan", data });
     }),
 
     update: asyncHandler(async (req, res) => {
         const id = validateId(req.params);
-        const data = await PenilaianSiswaModel.update(id, validateBody(req.body));
+        await assertExistingGradeBelongsToTentor(id, req.user.id);
+        const body = validateBody(req.body);
+        const kelasId = await assertGradeBelongsToTentor(body.sesi_id, req.user.id);
+        await assertStudentInClass(body.siswa_id, kelasId);
+        const data = await PenilaianSiswaModel.update(id, body);
         return sendSuccess(res, 200, { message: "Penilaian siswa berhasil diperbarui", data });
     }),
 
     remove: asyncHandler(async (req, res) => {
-        await PenilaianSiswaModel.remove(validateId(req.params));
+        const id = validateId(req.params);
+        await assertExistingGradeBelongsToTentor(id, req.user.id);
+        await PenilaianSiswaModel.remove(id);
         return sendSuccess(res, 200, { message: "Penilaian siswa berhasil dihapus" });
     }),
 };
