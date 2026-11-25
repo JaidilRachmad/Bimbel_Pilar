@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { getStudentGrades } from '../../services/laporanService';
 import logo from '../../assets/logo.png';
 import { ArrowLeft, BookOpen, Download, FileText, TrendingUp, MessageSquare } from 'lucide-react';
+import FloatingWhatsApp from '../../components/FloatingWhatsapp';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -398,7 +399,7 @@ export default function LaporanProgres() {
       </div>
         </>
       )}
-
+       <FloatingWhatsApp />
     </DashboardLayout>
   );
 }
