@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout'
 import { useAuth } from '../../context/AuthContext'
 import { getJadwalSiswa, getLinkUnduhMateri } from '../../services/materiSiswaService'
 import SppWarning from '../../components/SppWarning';
+import FloatingWhatsApp from '../../components/FloatingWhatsapp';
 import {
   BookOpen,
   CalendarCheck2,
@@ -353,6 +354,7 @@ export default function DashboardSiswa() {
         )}
       </div>
       <SppWarning /> 
+       <FloatingWhatsApp />
     </DashboardLayout>
   )
 }
