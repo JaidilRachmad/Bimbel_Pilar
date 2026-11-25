@@ -140,5 +140,6 @@ router.get("/:id", TagihanSppController.getById);
 router.put("/:id", TagihanSppController.update);
 router.delete("/:id", TagihanSppController.remove);
 router.put("/:id/edit-tanggal", TagihanSppController.editTanggal);
+router.put('/:id/buka-blokir', TagihanSppController.bukaBlokir);
 
 module.exports = router;    

@@ -46,7 +46,7 @@ function validateBody(body) {
 
     const statusList = ["Belum Bayar", "Lunas"];
     if (!statusList.includes(body.status)) {
-    errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
+        errors.push(`status wajib diisi salah satu dari: ${statusList.join(", ")}`);
     }
 
     const bulan = parsePositiveInt(String(body.bulan), NaN);
@@ -67,6 +67,7 @@ function validateBody(body) {
         bulan,
         tahun,
         tanggal_jatuh_tempo: body.tanggal_jatuh_tempo || null,
+        is_blocked: body.is_blocked // Izinkan update is_blocked
     };
 }
 
@@ -105,7 +106,6 @@ const TagihanSppController = {
     }),
 
     getMyTagihan: asyncHandler(async (req, res) => {
-        // Mengambil siswa_id dari payload token JWT yang sedang login (req.user)
         const siswaId = req.user.siswa_id || req.user.id;
         const data = await TagihanSppModel.getBySiswaId(siswaId);
         return sendSuccess(res, 200, { data });
@@ -127,42 +127,44 @@ const TagihanSppController = {
         return sendSuccess(res, 200, { message: "Tagihan SPP berhasil dihapus" });
     }),
 
-        // FUNGSI BARU: Handler untuk edit tanggal
     editTanggal: asyncHandler(async (req, res) => {
-        const id = validateId(req.params); // ID tagihan_spp
-        const { tanggal_pembayaran } = req.body;
+        const id = validateId(req.params); 
+        const { tanggal_pembayaran, nominal } = req.body;
 
         if (!tanggal_pembayaran) {
             throw AppError.badRequest("Tanggal pembayaran wajib diisi");
         }
 
-        // Panggil model
-        const data = await TagihanSppModel.updateInvoiceDate(id, tanggal_pembayaran);
+        if (nominal !== undefined && nominal !== null) {
+            await TagihanSppModel.update(id, { nominal: Number(nominal) });
+        }
+
+        try {
+            await TagihanSppModel.updateInvoiceDate(id, tanggal_pembayaran);
+        } catch (error) {
+            console.log(`Info: Gagal update tanggal invoice untuk ID ${id}. Kemungkinan invoice belum ada.`);
+        }
+
+        const updatedData = await TagihanSppModel.getById(id);
 
         return sendSuccess(res, 200, { 
-            message: "Tanggal pembayaran berhasil diperbarui", 
-            data 
+            message: "Data tagihan berhasil diperbarui", 
+            data: updatedData 
         });
     }),
 
-    // FUNGSI BARU: Konfirmasi Lunas + Generate Invoice
     bayarTagihan: asyncHandler(async (req, res) => {
-        const id = validateId(req.params); // ID tagihan_spp
+        const id = validateId(req.params); 
         const { tanggal_pembayaran, metode_pembayaran } = req.body;
 
-        // 1. Cek tagihan ada atau tidak
         const tagihan = await TagihanSppModel.getById(id);
         if (!tagihan) throw AppError.notFound("Tagihan tidak ditemukan");
 
-        // 2. Generate Nomor Invoice (Format: INV/YYYY/MM/XXX)
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
-        // Catatan: Untuk 3 digit terakhir (XXX), idealnya hitung dari database.
-        // Karena ini belum ada helper-nya, kita pakai timestamp dulu untuk sementara
         const nomor_invoice = `INV/${year}/${month}/${Date.now().toString().slice(-3)}`;
 
-        // 3. Insert ke tabel invoice_pembayaran
         const { data: invoice, error: errorInvoice } = await supabase
             .from('invoice_pembayaran')
             .insert({
@@ -178,12 +180,25 @@ const TagihanSppController = {
 
         if (errorInvoice) throw AppError.internal("Gagal membuat invoice");
 
-        // 4. Update status tagihan_spp menjadi Lunas
-        await TagihanSppModel.update(id, { status: 'Lunas' });
+        // Update status menjadi Lunas DAN otomatis buka blokir
+        await TagihanSppModel.update(id, { status: 'Lunas', is_blocked: false });
 
         return sendSuccess(res, 200, { 
             message: "Pembayaran berhasil dikonfirmasi", 
             data: invoice 
+        });
+    }),
+
+
+    bukaBlokir: asyncHandler(async (req, res) => {
+        const id = validateId(req.params);
+        const data = await TagihanSppModel.bukaBlokir(id);
+        
+        if (!data) throw AppError.notFound("Tagihan tidak ditemukan");
+
+        return sendSuccess(res, 200, { 
+            message: "Blokir akses berhasil dibuka", 
+            data 
         });
     }),
 };
