@@ -770,23 +770,18 @@ export default function NilaiReport() {
                     <th className="border-b border-gray-200 p-4 font-semibold">Tanggal</th>
                     <th className="border-b border-gray-200 p-4 font-semibold">Sesi / Materi</th>
                     <th className="border-b border-gray-200 p-4 text-center font-semibold">Nilai</th>
-                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Rata-rata Kelas</th>
-                    <th className="border-b border-gray-200 p-4 text-center font-semibold">Nilai Tertinggi</th>
                     <th className="border-b border-gray-200 p-4 font-semibold">Keterangan Tentor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loadingNilai ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
+                    <tr><td colSpan="5" className="p-8 text-center text-sm text-gray-500">Memuat nilai siswa...</td></tr>
                   ) : nilaiList.length === 0 ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
+                    <tr><td colSpan="5" className="p-8 text-center text-sm text-gray-500">Belum ada nilai tersimpan untuk siswa ini.</td></tr>
                   ) : nilaiList.map((item, index) => {
                     const sesi = Array.isArray(item.sesi_pembelajaran)
                       ? item.sesi_pembelajaran[0]
                       : item.sesi_pembelajaran;
-                    const nilaiTertinggiNama = Array.isArray(item.nilai_tertinggi_nama)
-                      ? item.nilai_tertinggi_nama
-                      : [];
                     return (
                       <tr key={item.id} className="transition hover:bg-gray-50">
                         <td className="p-4 text-center text-sm font-medium text-gray-600">{index + 1}</td>
@@ -801,21 +796,6 @@ export default function NilaiReport() {
                               ? 'bg-green-100 text-green-700'
                               : 'bg-blue-100 text-blue-700'
                           }`}>{item.nilai}</span>
-                        </td>
-                        <td className="p-4 text-center text-sm font-medium text-gray-600">
-                          {item.rata_rata_kelas ?? '-'}
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <span className="inline-block rounded-lg bg-orange-100 px-3 py-1 text-sm font-bold text-orange-700">
-                              {item.nilai_tertinggi ?? '-'}
-                            </span>
-                            {nilaiTertinggiNama.length > 0 && (
-                              <span className="text-[10px] font-medium text-orange-700">
-                                {nilaiTertinggiNama.join(', ')}
-                              </span>
-                            )}
-                          </div>
                         </td>
                         <td className="max-w-xs p-4 text-sm italic text-gray-600">"{item.keterangan || '-'}"</td>
                       </tr>
