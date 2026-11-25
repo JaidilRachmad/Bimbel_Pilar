@@ -74,9 +74,6 @@ export default function LaporanProgres() {
             mapel: sesi?.mata_pelajaran || '—',
             materi: sesi?.materi || '—',
             nilaiSaya: nilai.nilai,
-            rataRataKelas: nilai.rata_rata_kelas ?? '—',
-            nilaiTertinggi: nilai.nilai_tertinggi ?? '—',
-            nilaiTertinggiNama: Array.isArray(nilai.nilai_tertinggi_nama) ? nilai.nilai_tertinggi_nama : [],
             keterangan: nilai.keterangan || '—',
             kelas: sesi?.kelas?.nama_kelas || '—',
             tanggalSort: dateValue,
@@ -123,14 +120,10 @@ export default function LaporanProgres() {
       .map((month) => {
         const [year, monthNumber] = month.monthKey.split('-').map(Number);
         const date = new Date(year, monthNumber - 1, 1);
-        const average = month.grades.length
-          ? Math.round(month.grades.reduce((sum, grade) => sum + Number(grade.nilaiSaya || 0), 0) / month.grades.length)
-          : null;
         return {
           ...month,
           label: new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(date),
           sortValue: year * 100 + monthNumber,
-          average,
         };
       })
       .sort((first, second) => second.sortValue - first.sortValue);
@@ -258,8 +251,7 @@ export default function LaporanProgres() {
                   </div>
                   <h3 className="mt-4 text-base font-bold capitalize text-gray-900">{month.label}</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    {month.average === null ? 'Belum ada nilai' : `Rata-rata nilai ${month.average}`}
-                    {month.hasReport ? ' · Laporan tersedia' : ''}
+                    {month.hasReport ? 'Laporan tersedia' : 'Belum ada laporan'}
                   </p>
                 </button>
               ))}
@@ -316,8 +308,6 @@ export default function LaporanProgres() {
                 <th className="p-4 font-semibold border-b border-gray-200">Tanggal</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Sesi / Materi</th>
                 <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Rata-rata Kelas</th>
-                <th className="p-4 font-semibold border-b border-gray-200 text-center">Nilai Tertinggi</th>
                 <th className="p-4 font-semibold border-b border-gray-200">Keterangan Tentor</th>
               </tr>
             </thead>
@@ -334,19 +324,6 @@ export default function LaporanProgres() {
                     <span className={`inline-block px-3 py-1 rounded-lg font-bold text-sm ${item.nilaiSaya >= 80 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                       {item.nilaiSaya}
                     </span>
-                  </td>
-                  <td className="p-4 text-center text-sm font-medium text-gray-600">{item.rataRataKelas}</td>
-                  <td className="p-4 text-center">
-                    <div className="inline-flex flex-col items-center gap-1">
-                      <span className="inline-block px-3 py-1 rounded-lg bg-orange-100 text-orange-700 font-bold text-sm">
-                        {item.nilaiTertinggi}
-                      </span>
-                      {item.nilaiTertinggiNama.length > 0 && (
-                        <span className="text-[10px] font-medium text-orange-700">
-                          {item.nilaiTertinggiNama.join(', ')}
-                        </span>
-                      )}
-                    </div>
                   </td>
                   <td className="p-4 text-sm text-gray-600 italic max-w-xs">"{item.keterangan}"</td>
                 </tr>
