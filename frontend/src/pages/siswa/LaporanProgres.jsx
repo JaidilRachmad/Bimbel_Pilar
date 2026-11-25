@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { getStudentGrades } from '../../services/laporanService';
 import logo from '../../assets/logo.png';
 import { ArrowLeft, BookOpen, Download, FileText, TrendingUp, MessageSquare } from 'lucide-react';
+import { formatGradeValue } from '../../utils/gradeUtils';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -74,6 +75,7 @@ export default function LaporanProgres() {
             mapel: sesi?.mata_pelajaran || '—',
             materi: sesi?.materi || '—',
             nilaiSaya: nilai.nilai,
+            nilaiTampilan: formatGradeValue(nilai),
             keterangan: nilai.keterangan || '—',
             kelas: sesi?.kelas?.nama_kelas || '—',
             tanggalSort: dateValue,
@@ -322,7 +324,7 @@ export default function LaporanProgres() {
                   </td>
                   <td className="p-4 text-center">
                     <span className={`inline-block px-3 py-1 rounded-lg font-bold text-sm ${item.nilaiSaya >= 80 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {item.nilaiSaya}
+                      {item.nilaiTampilan}
                     </span>
                   </td>
                   <td className="p-4 text-sm text-gray-600 italic max-w-xs">"{item.keterangan}"</td>
