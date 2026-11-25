@@ -6,6 +6,7 @@
 const PenilaianSiswaModel = require("../models/nilaiModel");
 const AppError = require("../utils/AppError");
 const { asyncHandler, sendSuccess } = require("../utils/http");
+const { getGradeValidationErrors } = require("../utils/gradeValidation");
 const supabase = require("../config/supabaseClient");
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,17 +45,7 @@ function validateBody(body) {
         errors.push("siswa_id wajib diisi dan harus berformat UUID yang valid");
     }
 
-    if (body.nilai === undefined || body.nilai === null) {
-        errors.push("Nilai wajib diisi.");
-    } else if (typeof body.nilai !== "number" || !Number.isFinite(body.nilai)) {
-        errors.push("Nilai harus berupa angka yang valid (contoh: 85, 85.5, 90).");
-    } else if (body.nilai < 0 || body.nilai > 100) {
-        errors.push("Nilai harus berada di antara rentang 0 sampai 100.");
-    }
-
-    if (!["angka", "huruf"].includes(body.tipe_nilai)) {
-    errors.push("tipe_nilai harus berupa 'angka' atau 'huruf'");
-}
+    errors.push(...getGradeValidationErrors(body.nilai, body.tipe_nilai));
 
     assertValid(errors);
     return {
