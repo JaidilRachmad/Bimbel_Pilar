@@ -4,6 +4,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  PanelLeftClose,
   School,
   Users,
   Wallet,
@@ -35,7 +36,7 @@ const portalByRole = {
   siswa: 'Siswa Portal',
 };  
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, open = false, desktopOpen = true, onClose, onCollapse }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -47,7 +48,12 @@ export default function Sidebar({ role }) {
   };
 
   return (
-    <aside className="w-64 bg-[#0F172A] text-white flex flex-col shrink-0 h-full">
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 h-full w-64 overflow-hidden bg-[#0F172A] text-white shrink-0 transition-all duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+        open ? 'translate-x-0' : '-translate-x-full'
+      } ${desktopOpen ? 'lg:w-64' : 'lg:w-0'}`}
+    >
+      <div className="flex h-full w-64 flex-col">
       <div className="h-20 flex items-center px-6 border-b border-slate-700/50 shrink-0">
         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1 mr-3 shrink-0 overflow-hidden">
           <img src={logo} alt="Logo Pilar Cendekia" className="w-full h-full object-contain" />
@@ -58,6 +64,15 @@ export default function Sidebar({ role }) {
             {portalByRole[role] ?? 'Portal'}
           </span>
         </div>
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label="Tutup sidebar"
+          title="Tutup sidebar"
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+        >
+          <PanelLeftClose className="w-5 h-5" />
+        </button>
       </div>
 
       <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
@@ -67,6 +82,7 @@ export default function Sidebar({ role }) {
             <Link
               key={name}
               to={path}
+              onClick={onClose}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 isActive
                   ? 'bg-blue-600 text-white font-semibold shadow-md'
@@ -88,6 +104,7 @@ export default function Sidebar({ role }) {
           <LogOut className="w-5 h-5" />
           <span className="text-sm font-medium">Keluar Akun</span>
         </button>
+      </div>
       </div>
     </aside>
   );
