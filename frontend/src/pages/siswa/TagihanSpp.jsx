@@ -3,9 +3,10 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../services/api';
 import EKwitansi from '../../components/EKwitansi';
 import FloatingWhatsApp from '../../components/FloatingWhatsapp';
+import TagihanCard from '../../components/siswa/TagihanCard';
 import { 
   CheckCircle2, XCircle,
-  FileText, Loader2, AlertCircle, CalendarDays, ChevronDown
+  FileText, Loader2, AlertCircle, CalendarDays
 } from 'lucide-react';
 
 const MONTHS = [
@@ -29,17 +30,11 @@ const formatTanggal = (value) => {
 const getPeriodeKey = (item) =>
   `${item.tahun}-${String(item.bulan).padStart(2, '0')}`;
 
-const getPeriodeLabel = (key) => {
-  const [tahun, bulan] = key.split('-');
-  return formatBulan(Number(bulan), tahun);
-};
-
 export default function TagihanSpp() {
   const [tagihanSiswa, setTagihanSiswa] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('terdekat');
-  const [selectedPeriod, setSelectedPeriod] = useState('semua');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   const fetchMySpp = async () => {
@@ -84,7 +79,6 @@ export default function TagihanSpp() {
       //   currentPeriod ||
       //   (mappedData.length > 0 ? getPeriodeKey(mappedData[0]) : '')
       // );
-      setSelectedPeriod((currentPeriod) => currentPeriod || 'semua');
     } catch (error) {
       console.error("Gagal mengambil data SPP:", error);
       setTagihanSiswa([]);
@@ -128,16 +122,8 @@ export default function TagihanSpp() {
     (spp) => getPeriodeKey(spp) === periodeBulanIni,
   ) || null;
   const tagihanTerdekat = tagihanBulanIni || tagihanBelumBayar[0] || null;
-  const periodeOptions = [...new Set(tagihanSiswa.map(getPeriodeKey))]
-    .sort((a, b) => b.localeCompare(a));
-  // const tagihanPeriode = tagihanSiswa.filter(
-  //   (spp) => getPeriodeKey(spp) === selectedPeriod,
-  // );
-  const tagihanPeriode = tagihanSiswa.filter(
-  (spp) =>
-    selectedPeriod === 'semua' ||
-    getPeriodeKey(spp) === selectedPeriod,
-);
+  // Tab "Tagihan Satu Periode": semua tagihan yang belum lunas, tanpa filter bulan
+  const tagihanPeriode = tagihanBelumBayar;
 
   useEffect(() => {
     if (paketTahunanTerdeteksi) {
@@ -174,13 +160,13 @@ export default function TagihanSpp() {
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 bg-gray-50/70 px-4 pt-3 sm:px-6">
-          <div className="flex gap-5 overflow-x-auto">
+          <div className="grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:gap-5 sm:overflow-x-auto">
             {[
               !paketTahunanTerdeteksi
-                ? { key: 'terdekat', label: 'Tagihan Bulan Ini', count: tagihanBelumBayar.length }
+                ? { key: 'terdekat', label: 'Tagihan Bulan Ini'}
                 : null,
               !paketTahunanTerdeteksi
-                ? { key: 'periode', label: 'Tagihan Satu Periode', count: periodeOptions.length }
+                ? { key: 'periode', label: 'Belum Lunas', count: tagihanBelumBayar.length }
                 : null,
               { key: 'lunas', label: 'Lunas', count: riwayatPembayaran.length },
             ].filter(Boolean).map((tab) => (
@@ -188,7 +174,7 @@ export default function TagihanSpp() {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold transition ${
+                className={`flex min-w-0 flex-col items-center justify-center gap-1 whitespace-normal border-b-2 px-1 pb-3 pt-1 text-center text-xs font-semibold leading-tight transition sm:shrink-0 sm:flex-row sm:gap-2 sm:whitespace-nowrap sm:text-sm ${
                   activeTab === tab.key
                     ? 'border-blue-700 text-blue-700'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -265,39 +251,27 @@ export default function TagihanSpp() {
           <div>
             <div className="flex flex-col gap-3 border-b border-gray-100 bg-gray-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 font-bold text-gray-800">
-                <CalendarDays className="h-5 w-5 text-blue-700" /> Pilih periode
+                <CalendarDays className="h-5 w-5 text-blue-700" /> Semua tagihan belum lunas
               </h3>
-              {periodeOptions.length > 0 && (
-                <div className="relative">
-                  {/* <select
-                    value={selectedPeriod}
-                    onChange={(event) => setSelectedPeriod(event.target.value)}
-                    className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-9 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    {periodeOptions.map((period) => (
-                      <option key={period} value={period}>
-                        {getPeriodeLabel(period)}
-                      </option>
-                    ))}
-                  </select> */}
-                  <select
-                    value={selectedPeriod}
-                    onChange={(event) => setSelectedPeriod(event.target.value)}
-                    className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-9 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="semua">Semua Bulan</option>
-
-                    {periodeOptions.map((period) => (
-                      <option key={period} value={period}>
-                        {getPeriodeLabel(period)}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                </div>
+            </div>
+            <div className="space-y-3 p-4 sm:hidden">
+              {tagihanPeriode.length > 0 ? tagihanPeriode.map((item) => (
+                <TagihanCard
+                  key={item.id}
+                  periode={formatBulan(item.bulan, item.tahun)}
+                  nominal={item.nominal}
+                  tanggal={item.status === 'Lunas'
+                    ? formatTanggal(item.tanggal_pembayaran)
+                    : formatTanggal(item.tanggal_jatuh_tempo)}
+                  tanggalLabel={item.status === 'Lunas' ? 'Tanggal Bayar' : 'Jatuh Tempo'}
+                  isLunas={item.status === 'Lunas'}
+                  onShowInvoice={() => setSelectedInvoice(item)}
+                />
+              )) : (
+                <p className="py-8 text-center text-sm text-gray-500">Tidak ada tagihan yang belum lunas.</p>
               )}
             </div>
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto sm:block">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200 bg-white text-xs uppercase tracking-wider text-gray-500">
@@ -339,7 +313,7 @@ export default function TagihanSpp() {
                   )) : (
                     <tr>
                       <td colSpan="4" className="p-8 text-center text-gray-500">
-                        Belum ada tagihan pada periode ini.
+                        Tidak ada tagihan yang belum lunas.
                       </td>
                     </tr>
                   )}
@@ -350,7 +324,24 @@ export default function TagihanSpp() {
         )}
 
         {activeTab === 'lunas' && (
-          <div className="overflow-x-auto">
+          <div>
+          <div className="space-y-3 p-4 sm:hidden">
+            {riwayatPembayaran.length > 0 ? riwayatPembayaran.map((item) => (
+              <TagihanCard
+                key={item.id}
+                periode={formatBulan(item.bulan, item.tahun)}
+                nominal={item.nominal}
+                tanggal={formatTanggal(item.tanggal_pembayaran)}
+                tanggalLabel="Tanggal Bayar"
+                metode={item.metode_pembayaran || '-'}
+                isLunas
+                onShowInvoice={() => setSelectedInvoice(item)}
+              />
+            )) : (
+              <p className="py-8 text-center text-sm text-gray-500">Belum ada riwayat pembayaran.</p>
+            )}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-white text-xs uppercase tracking-wider text-gray-500">
@@ -394,6 +385,7 @@ export default function TagihanSpp() {
                 )}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>
