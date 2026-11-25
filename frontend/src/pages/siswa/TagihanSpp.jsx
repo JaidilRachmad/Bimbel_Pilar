@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../services/api';
 import EKwitansi from '../../components/EKwitansi';
+import FloatingWhatsApp from '../../components/FloatingWhatsapp';
 import { 
   CheckCircle2, XCircle,
   FileText, Loader2, AlertCircle, CalendarDays, ChevronDown
@@ -38,7 +39,7 @@ export default function TagihanSpp() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('terdekat');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('semua');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   const fetchMySpp = async () => {
@@ -79,10 +80,11 @@ export default function TagihanSpp() {
 
       setTagihanSiswa(mappedData);
       setError('');
-      setSelectedPeriod((currentPeriod) =>
-        currentPeriod ||
-        (mappedData.length > 0 ? getPeriodeKey(mappedData[0]) : '')
-      );
+      // setSelectedPeriod((currentPeriod) =>
+      //   currentPeriod ||
+      //   (mappedData.length > 0 ? getPeriodeKey(mappedData[0]) : '')
+      // );
+      setSelectedPeriod((currentPeriod) => currentPeriod || 'semua');
     } catch (error) {
       console.error("Gagal mengambil data SPP:", error);
       setTagihanSiswa([]);
@@ -128,9 +130,14 @@ export default function TagihanSpp() {
   const tagihanTerdekat = tagihanBulanIni || tagihanBelumBayar[0] || null;
   const periodeOptions = [...new Set(tagihanSiswa.map(getPeriodeKey))]
     .sort((a, b) => b.localeCompare(a));
+  // const tagihanPeriode = tagihanSiswa.filter(
+  //   (spp) => getPeriodeKey(spp) === selectedPeriod,
+  // );
   const tagihanPeriode = tagihanSiswa.filter(
-    (spp) => getPeriodeKey(spp) === selectedPeriod,
-  );
+  (spp) =>
+    selectedPeriod === 'semua' ||
+    getPeriodeKey(spp) === selectedPeriod,
+);
 
   useEffect(() => {
     if (paketTahunanTerdeteksi) {
@@ -262,11 +269,24 @@ export default function TagihanSpp() {
               </h3>
               {periodeOptions.length > 0 && (
                 <div className="relative">
+                  {/* <select
+                    value={selectedPeriod}
+                    onChange={(event) => setSelectedPeriod(event.target.value)}
+                    className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-9 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  >
+                    {periodeOptions.map((period) => (
+                      <option key={period} value={period}>
+                        {getPeriodeLabel(period)}
+                      </option>
+                    ))}
+                  </select> */}
                   <select
                     value={selectedPeriod}
                     onChange={(event) => setSelectedPeriod(event.target.value)}
                     className="appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-9 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   >
+                    <option value="semua">Semua Bulan</option>
+
                     {periodeOptions.map((period) => (
                       <option key={period} value={period}>
                         {getPeriodeLabel(period)}
@@ -395,6 +415,7 @@ export default function TagihanSpp() {
           tanggal_pembayaran: selectedInvoice.tanggal_pembayaran
         } : null} 
       />
+      <FloatingWhatsApp />
     </DashboardLayout>
   );
 }
