@@ -4,7 +4,8 @@ const supabase = require("../config/supabaseClient");
 const AppError = require("../utils/AppError");
 
 const TABLE = "tagihan_spp";
-const COLUMNS = "id, siswa_id, nominal, status, bulan, tahun, tanggal_jatuh_tempo, created_at, updated_at, siswa_profile(nama, nama_wali, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
+// Menambahkan is_blocked ke dalam COLUMNS agar terbaca di frontend
+const COLUMNS = "id, siswa_id, nominal, status, bulan, tahun, tanggal_jatuh_tempo, is_blocked, created_at, updated_at, siswa_profile(nama, nama_wali, kelas_siswa(kelas(nama_kelas))), invoice_pembayaran(metode_pembayaran, tanggal_pembayaran)";
 const NOT_FOUND = "Tagihan SPP tidak ditemukan";
 
 const WRITABLE_FIELDS = Object.freeze([
@@ -14,6 +15,7 @@ const WRITABLE_FIELDS = Object.freeze([
     "tanggal_jatuh_tempo",
     "bulan",
     "tahun",
+    "is_blocked" // Tambahkan ini agar bisa diupdate
 ]);
 
 function pickWritable(input = {}) {
@@ -46,7 +48,6 @@ class TagihanSppModel {
         };
     }
 
-    // ... (Fungsi getById, create, update, remove, getBySiswaId biarkan sama seperti aslinya) ...
     static async getById(id) {
         const { data, error } = await supabase.from(TABLE).select(COLUMNS).eq("id", id).maybeSingle();
         if (error) throw error;
@@ -86,7 +87,8 @@ class TagihanSppModel {
             .from('invoice_pembayaran')
             .update({ tanggal_pembayaran: tanggal_pembayaran })
             .eq('tagihan_id', tagihanId)
-            .select().single();
+            .select()
+            .maybeSingle(); 
         if (error) throw error;
         return data;
     }
@@ -95,6 +97,28 @@ class TagihanSppModel {
         const { data, error } = await supabase.from(TABLE).delete().eq("id", id).select("id").maybeSingle();
         if (error) throw error;
         if (!data) throw AppError.notFound(NOT_FOUND);
+    }
+
+    static async updateNominal(id, nominal) {
+        const { data, error } = await supabase
+            .from(TABLE)
+            .update({ nominal: nominal, updated_at: new Date().toISOString() })
+            .eq("id", id)
+            .select(COLUMNS)
+            .maybeSingle();
+        if (error) throw error;
+        return data;
+    }
+
+    static async bukaBlokir(id) {
+        const { data, error } = await supabase
+            .from(TABLE)
+            .update({ is_blocked: false, updated_at: new Date().toISOString() })
+            .eq("id", id)
+            .select(COLUMNS)
+            .maybeSingle();
+        if (error) throw error;
+        return data;
     }
 }
 

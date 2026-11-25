@@ -3,7 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../services/api';
 import { 
   CheckCircle2, XCircle, Loader2, 
-  Trash2, Edit, Search, Filter, ChevronDown, ChevronRight, User, X
+  Trash2, Edit, Search, Filter, ChevronDown, ChevronRight, User, X, Unlock
 } from 'lucide-react';
 
 export default function ManajemenSpp() {
@@ -20,12 +20,12 @@ export default function ManajemenSpp() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSppData, setEditingSppData] = useState(null);
   const [editDate, setEditDate] = useState('');
+  const [editNominal, setEditNominal] = useState(''); 
   const [isSaving, setIsSaving] = useState(false);
 
   const fetchTagihan = async () => {
     setIsLoading(true);
     try {
-      // Ambil semua halaman (backend default 10 per halaman, maksimal 100)
       const fetchedItems = [];
       let currentPage = 1;
       let totalPages = 1;
@@ -57,7 +57,6 @@ export default function ManajemenSpp() {
           ...item,
           metode_pembayaran: metodeTersimpan,
           tanggal_pembayaran: tanggalTersimpan,
-          // MENGHAPUS DATA DUMMY KELAS (Menggunakan data asli dari database)
           kelas_name: item.siswa_profile?.kelas_siswa?.[0]?.kelas?.nama_kelas || '-'
         };
       });
@@ -105,7 +104,6 @@ export default function ManajemenSpp() {
 
   const handleHapus = async (id) => {
     if (!window.confirm("Yakin ingin menghapus tagihan ini?")) return;
-
     try {
       await api.delete(`/tagihan-spp/${id}`);
       fetchTagihan();
@@ -114,28 +112,61 @@ export default function ManajemenSpp() {
     }
   };
 
+  // --- LOGIKA POIN 2: EDIT NOMINAL & TANGGAL ---
   const handleOpenEdit = (spp) => {
     setEditingSppData(spp);
+    
     setEditDate(spp.tanggal_pembayaran !== '-' ? spp.tanggal_pembayaran : new Date().toISOString().split('T')[0]);
+    
+    let nominalAwal = spp.nominal || 0;
+    if (spp.bulan === 6) { 
+      nominalAwal = nominalAwal / 2; 
+    }
+    
+    setEditNominal(nominalAwal);
     setIsEditModalOpen(true);
   };
 
   const handleSaveEdit = async () => {
     if (!editDate) return alert("Pilih tanggal terlebih dahulu");
-    setIsSaving(true);
+    if (!editNominal || editNominal < 0) return alert("Nominal tidak valid");
     
+    setIsSaving(true);
     try {
       await api.put(`/tagihan-spp/${editingSppData.id}/edit-tanggal`, {
-        tanggal_pembayaran: editDate
+        tanggal_pembayaran: editDate,
+        nominal: parseInt(editNominal) 
       });
-      alert("Tanggal pembayaran berhasil diperbarui!");
+      alert("Data tagihan berhasil diperbarui!");
       setIsEditModalOpen(false);
       fetchTagihan(); 
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Gagal menyimpan tanggal.");
+      alert(error.response?.data?.message || "Gagal menyimpan data.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // --- LOGIKA POIN 8: BUKA BLOKIR PER SISWA (DISEMPURNAKAN) ---
+  const handleBukaBlokir = async (siswa) => {
+    // Hanya filter tagihan yang terblokir DAN masih Belum Bayar
+    const tagihanDiblokir = siswa.tagihan.filter(t => t.is_blocked && t.status !== 'Lunas');
+    
+    if (tagihanDiblokir.length === 0) return;
+
+    const konfirmasi = window.confirm(`Buka blokir untuk ${tagihanDiblokir.length} bulan tagihan milik ${siswa.nama}?\n\nPastikan pembayaran sudah digabung/diverifikasi.`);
+    if (!konfirmasi) return;
+
+    try {
+      await Promise.all(
+        tagihanDiblokir.map(spp => api.put(`/tagihan-spp/${spp.id}/buka-blokir`))
+      );
+      
+      alert(`Blokir akses untuk ${siswa.nama} berhasil dibuka!`);
+      fetchTagihan(); 
+    } catch (error) {
+      alert(error.response?.data?.message || "Gagal membuka blokir.");
     }
   };
 
@@ -167,7 +198,7 @@ export default function ManajemenSpp() {
     <DashboardLayout>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Manajemen SPP</h1>
-        <p className="text-gray-500 mt-1">Kelola tagihan bulanan. Klik pada nama siswa untuk melihat rincian bulan.</p>
+        <p className="text-gray-500 mt-1">Kelola tagihan bulanan. Klik pada nama siswa untuk melihat rincian.</p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -235,6 +266,8 @@ export default function ManajemenSpp() {
                   studentsList.map((siswa) => {
                     const isExpanded = expandedStudents[siswa.siswa_id];
                     const isAllLunas = siswa.tagihan.every(t => t.status === 'Lunas');
+                    // Cek apakah ada tagihan yang is_blocked true DAN statusnya BUKAN Lunas
+                    const hasBlockedBill = siswa.tagihan.some(t => t.is_blocked === true && t.status !== 'Lunas'); 
 
                     return (
                       <React.Fragment key={siswa.siswa_id}>
@@ -265,8 +298,29 @@ export default function ManajemenSpp() {
                               {isAllLunas ? 'Semua Lunas' : 'Ada Tunggakan'}
                             </span>
                           </td>
-                          <td className="p-4 text-center text-sm text-blue-600 font-semibold hover:underline">
-                            {isExpanded ? 'Tutup Detail' : 'Lihat Detail'}
+                          
+                          {/* KOLOM AKSI UTAMA (SISWA) */}
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-3">
+                              {/* Tombol Buka Blokir (Poin 8) di card siswa */}
+                              {hasBlockedBill && (
+                                <button 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); // Mencegah accordion buka/tutup
+                                    handleBukaBlokir(siswa); 
+                                  }}
+                                  className="px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                                  title="Buka Blokir Siswa Ini"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" />
+                                  Buka Blokir
+                                </button>
+                              )}
+                              
+                              <span className="text-sm text-blue-600 font-semibold hover:underline">
+                                {isExpanded ? 'Tutup Detail' : 'Lihat Detail'}
+                              </span>
+                            </div>
                           </td>
                         </tr>
 
@@ -289,8 +343,12 @@ export default function ManajemenSpp() {
                                   <tbody className="divide-y divide-gray-100">
                                     {siswa.tagihan.map((spp) => (
                                       <tr key={spp.id} className="hover:bg-gray-50">
-                                        <td className="p-3 text-sm font-medium text-gray-800">
+                                        <td className="p-3 text-sm font-medium text-gray-800 flex items-center gap-2">
                                           {new Date(spp.tahun, spp.bulan - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                                          {/* Label Blokir Kecil (Hanya muncul jika belum lunas) */}
+                                          {spp.is_blocked && spp.status !== 'Lunas' && (
+                                            <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded text-[10px] font-bold">BLOKIR</span>
+                                          )}
                                         </td>
                                         <td className="p-3 text-sm text-gray-600">
                                           Rp {spp.nominal ? spp.nominal.toLocaleString('id-ID') : 0}
@@ -320,7 +378,7 @@ export default function ManajemenSpp() {
                                           </select>
                                         </td>
                                         
-                                        {/* KOLOM AKSI */}
+                                        {/* KOLOM AKSI DALAM TABEL */}
                                         <td className="p-3">
                                           <div className="flex items-center justify-center gap-1.5">
                                             
@@ -333,11 +391,9 @@ export default function ManajemenSpp() {
                                               </button>
                                             )}
 
-                                            {spp.status === 'Lunas' && (
-                                              <button onClick={() => handleOpenEdit(spp)} className="p-1 text-orange-500 hover:bg-orange-50 rounded" title="Edit Tanggal">
-                                                <Edit className="w-4 h-4" />
-                                              </button>
-                                            )}
+                                            <button onClick={() => handleOpenEdit(spp)} className="p-1 text-orange-500 hover:bg-orange-50 rounded" title="Edit Nominal/Tanggal">
+                                              <Edit className="w-4 h-4" />
+                                            </button>
                                             
                                             <button onClick={() => handleHapus(spp.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Hapus">
                                               <Trash2 className="w-4 h-4" />
@@ -373,25 +429,43 @@ export default function ManajemenSpp() {
         </div>
       </div>
 
-      {/* ================= MODAL EDIT TANGGAL PEMBAYARAN ================= */}
+      {/* ================= MODAL EDIT TANGGAL & NOMINAL ================= */}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-800">Edit Tanggal Pembayaran</h3>
+              <h3 className="text-lg font-bold text-gray-800">Edit Tagihan SPP</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-red-500">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">Siswa: <span className="font-bold text-gray-900">{editingSppData?.siswa_profile?.nama}</span></p>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Pembayaran</label>
-              <input 
-                type="date" 
-                value={editDate} 
-                onChange={(e) => setEditDate(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">Siswa: <span className="font-bold text-gray-900">{editingSppData?.siswa_profile?.nama}</span></p>
+              
+              {/* Input Nominal */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nominal Tagihan (Rp)</label>
+                <input 
+                  type="number" 
+                  value={editNominal} 
+                  onChange={(e) => setEditNominal(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-gray-800"
+                />
+                {editingSppData?.bulan === 6 && (
+                  <p className="text-xs text-orange-500 mt-1 font-medium">*Nominal otomatis disesuaikan dengan diskon 50% bulan Juni.</p>
+                )}
+              </div>
+
+              {/* Input Tanggal */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Pembayaran</label>
+                <input 
+                  type="date" 
+                  value={editDate} 
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
             </div>
             <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
               <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200 rounded-lg transition">Batal</button>
