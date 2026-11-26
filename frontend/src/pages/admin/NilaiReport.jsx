@@ -6,6 +6,7 @@ import {
 import { getAllKelas } from '../../services/kelasService';
 import { getAllUsers } from '../../services/userService';
 import { getKelasSessions } from '../../services/jadwalMateriService';
+import { formatGradeValue } from '../../utils/gradeUtils';
 import {
   ArrowLeft, Check, CheckCircle2, ChevronRight,
   AlertCircle, CalendarDays, ClipboardCheck, Edit3, LoaderCircle, Save, School, Search, Sparkles, User, Users
@@ -795,7 +796,7 @@ export default function NilaiReport() {
                             Number(item.nilai) >= 80
                               ? 'bg-green-100 text-green-700'
                               : 'bg-blue-100 text-blue-700'
-                          }`}>{item.nilai}</span>
+                          }`}>{formatGradeValue(item)}</span>
                         </td>
                         <td className="max-w-xs p-4 text-sm italic text-gray-600">"{item.keterangan || '-'}"</td>
                       </tr>

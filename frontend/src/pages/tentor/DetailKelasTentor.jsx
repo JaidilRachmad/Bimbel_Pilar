@@ -18,34 +18,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { formatGradeValue, parseGradeInput } from '../../utils/gradeUtils';
 
 const MAPEL_TABS = ['Matematika', 'IPA', 'Bahasa Indonesia', 'Bahasa Inggris'];
-const KONVERSI_NILAI = { A: 100, B: 90, C: 80, D: 70, E: 60 };
 
 function getErrorMessage(error, fallback) {
   return error.response?.data?.message || error.message || fallback;
-}
-
-function toGradeNumber(value) {
-  const normalized = String(value ?? '').trim().toUpperCase();
-  if (Object.hasOwn(KONVERSI_NILAI, normalized)) return KONVERSI_NILAI[normalized];
-  if (!normalized) return null;
-  const number = Number(normalized);
-  return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
-}
-
-function getGradeType(value) {
-  const normalized = String(value ?? '').trim().toUpperCase();
-  return Object.hasOwn(KONVERSI_NILAI, normalized) ? 'huruf' : 'angka';
-}
-
-function gradeToDisplayValue(grade) {
-  if (!grade) return '';
-  if (grade.tipe_nilai === 'huruf') {
-    return Object.entries(KONVERSI_NILAI)
-      .find(([, number]) => number === Number(grade.nilai))?.[0] || String(grade.nilai);
-  }
-  return String(grade.nilai);
 }
 
 async function getAllSessions(kelasId) {
@@ -133,7 +111,7 @@ export default function DetailKelasTentor() {
           return {
             siswa_id: studentId,
             nama: profile?.nama || 'Siswa',
-            nilai: gradeToDisplayValue(grade),
+            nilai: formatGradeValue(grade),
             tipe_nilai: grade?.tipe_nilai || null,
             keterangan: grade?.keterangan || '',
             gradeId: grade?.id || null,
@@ -156,8 +134,8 @@ export default function DetailKelasTentor() {
   };
 
   const saveGrade = async (row) => {
-    const numericGrade = toGradeNumber(row.nilai);
-    if (numericGrade === null) {
+    const parsedGrade = parseGradeInput(row.nilai);
+    if (!parsedGrade) {
       setGradeError('Nilai wajib berupa angka 0–100 atau huruf A–E.');
       return;
     }
@@ -167,8 +145,7 @@ export default function DetailKelasTentor() {
     const payload = {
       sesi_id: sessionForNilai.id,
       siswa_id: row.siswa_id,
-      nilai: numericGrade,
-      tipe_nilai: getGradeType(row.nilai),
+      ...parsedGrade,
       keterangan: row.keterangan.trim() || null,
     };
     try {
